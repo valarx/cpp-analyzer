@@ -1,0 +1,15 @@
+[package]
+name = "libclang-wrapper"
+version = "0.1.0"
+authors = ["Anatoly Baranov <valar1989@gmail.com>"]
+edition = "2018"
+license = "Apache-2.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clang-sys = "0.28"
+libc = "0.2"
+
+[features]
+clang_8_0 = []
