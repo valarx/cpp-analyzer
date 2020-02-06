@@ -17,6 +17,7 @@ fn create_index_test() {
         "tests/header.h".to_owned(),
         index::DeclarationFromPHCMode::Exclude,
         index::DiagnosticsMode::Enabled,
+        index::TUOptionsBuilder::new(),
     );
 }
 
