@@ -1,9 +1,8 @@
 use clang_sys::*;
 use libc::c_char;
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::ptr;
-
-pub struct Index {}
 
 pub enum DeclarationFromPHCMode {
     Include = 0,
@@ -70,6 +69,29 @@ impl TUOptionsBuilder {
     }
 }
 
+pub struct Index {
+    pub cursor_data: Vec<String>,
+}
+
+extern "C" fn traverse_cursor(
+    current: CXCursor,
+    _parent: CXCursor,
+    client_data: *mut core::ffi::c_void,
+) -> CXChildVisitResult {
+    unsafe {
+        let index = &mut *(client_data as *mut Index);
+        let cursor_spelling = clang_getCursorSpelling(current);
+        let _cursor_kind_spelling = clang_getCursorKindSpelling(clang_getCursorKind(current));
+        let cursor_spelling_as_string = clang_getCString(cursor_spelling);
+        let cursor_spelling_as_string = CStr::from_ptr(cursor_spelling_as_string)
+            .to_string_lossy()
+            .into_owned();
+        index.cursor_data.push(cursor_spelling_as_string);
+        clang_disposeString(cursor_spelling);
+    }
+    CXChildVisit_Recurse
+}
+
 impl Index {
     pub fn new(
         file_name: String,
@@ -78,12 +100,11 @@ impl Index {
         options: TUOptionsBuilder,
     ) -> Index {
         // TODO error handling
+        let c_file_name = CString::new(file_name).expect("Failed to convert file name to c string");
         unsafe {
             let index = clang_createIndex(phc_mode as i32, diagnostics_mode as i32);
             assert!(!index.is_null(), "Could not create clang index");
 
-            let c_file_name =
-                CString::new(file_name).expect("Failed to convert file name to c string");
             let command_line_args: *const *const c_char = ptr::null(); // FIXME
             let command_line_args_num = 0;
             let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
@@ -101,10 +122,21 @@ impl Index {
                 !translation_unit.is_null(),
                 "Could not parse translation unit"
             );
-            clang_disposeIndex(index);
+
+            let cursor = clang_getTranslationUnitCursor(translation_unit);
+            let mut result: Index = Index {
+                cursor_data: vec![],
+            };
+            clang_visitChildren(
+                cursor,
+                traverse_cursor,
+                &mut result as *mut _ as *mut std::ffi::c_void,
+            );
+
             clang_disposeTranslationUnit(translation_unit);
+            clang_disposeIndex(index);
+            result
         }
-        Index {}
     }
 }
 

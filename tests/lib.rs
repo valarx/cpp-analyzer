@@ -19,6 +19,9 @@ fn create_index_test() {
         index::DiagnosticsMode::Enabled,
         index::TUOptionsBuilder::new(),
     );
+    assert_eq!(index.cursor_data[0], "add");
+    assert_eq!(index.cursor_data[1], "a");
+    assert_eq!(index.cursor_data[2], "b");
 }
 
 #[test]
