@@ -14,6 +14,17 @@ pub enum DiagnosticsMode {
     Enabled = 1,
 }
 
+#[derive(Debug)]
+pub enum ParsingError {
+    FileNameConversionProblem,
+    IndexCreationFailure,
+    GenericFailure,
+    Crash,
+    InvalidArguments,
+    ASTReadError,
+    UnknownError(i32),
+}
+
 pub struct TUOptionsBuilder {
     resulting_options: i32,
 }
@@ -69,7 +80,7 @@ impl TUOptionsBuilder {
     }
 }
 
-pub struct Index {
+pub struct Source {
     pub cursor_data: Vec<String>,
 }
 
@@ -79,7 +90,7 @@ extern "C" fn traverse_cursor(
     client_data: *mut core::ffi::c_void,
 ) -> CXChildVisitResult {
     unsafe {
-        let index = &mut *(client_data as *mut Index);
+        let index = &mut *(client_data as *mut Source);
         let cursor_spelling = clang_getCursorSpelling(current);
         let _cursor_kind_spelling = clang_getCursorKindSpelling(clang_getCursorKind(current));
         let cursor_spelling_as_string = clang_getCString(cursor_spelling);
@@ -92,24 +103,30 @@ extern "C" fn traverse_cursor(
     CXChildVisit_Recurse
 }
 
-impl Index {
+impl Source {
     pub fn new(
         file_name: String,
         phc_mode: DeclarationFromPHCMode,
         diagnostics_mode: DiagnosticsMode,
         options: TUOptionsBuilder,
-    ) -> Index {
-        // TODO error handling
-        let c_file_name = CString::new(file_name).expect("Failed to convert file name to c string");
+    ) -> Result<Source, ParsingError> {
+        let c_file_name = CString::new(file_name);
+        let c_file_name = match c_file_name {
+            Ok(value) => value,
+            Err(_) => return Err(ParsingError::FileNameConversionProblem),
+        };
         unsafe {
             let index = clang_createIndex(phc_mode as i32, diagnostics_mode as i32);
-            assert!(!index.is_null(), "Could not create clang index");
+            if index.is_null() {
+                return Err(ParsingError::IndexCreationFailure);
+            }
 
             let command_line_args: *const *const c_char = ptr::null(); // FIXME
             let command_line_args_num = 0;
             let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
             let unsaved_files_num = 0;
-            let translation_unit = clang_parseTranslationUnit(
+            let mut translation_unit: CXTranslationUnit = ptr::null_mut();
+            let parse_code = clang_parseTranslationUnit2(
                 index,
                 c_file_name.as_ptr(),
                 command_line_args,
@@ -117,14 +134,24 @@ impl Index {
                 unsaved_files,
                 unsaved_files_num,
                 options.build(),
+                &mut translation_unit,
             );
+
+            match parse_code {
+                clang_sys::CXError_Success => (),
+                clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
+                clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
+                clang_sys::CXError_InvalidArguments => return Err(ParsingError::InvalidArguments),
+                clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
+                _ => return Err(ParsingError::UnknownError(parse_code)),
+            };
             assert!(
                 !translation_unit.is_null(),
                 "Could not parse translation unit"
             );
 
             let cursor = clang_getTranslationUnitCursor(translation_unit);
-            let mut result: Index = Index {
+            let mut result: Source = Source {
                 cursor_data: vec![],
             };
             clang_visitChildren(
@@ -135,7 +162,7 @@ impl Index {
 
             clang_disposeTranslationUnit(translation_unit);
             clang_disposeIndex(index);
-            result
+            Ok(result)
         }
     }
 }
