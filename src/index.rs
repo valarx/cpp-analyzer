@@ -104,7 +104,7 @@ extern "C" fn traverse_cursor(
 }
 
 struct Index {
-    pub index: CXIndex,
+    index: CXIndex,
 }
 
 impl Index {
@@ -127,9 +127,65 @@ impl Index {
 
 impl Drop for Index {
     fn drop(&mut self) {
-        assert!(!self.index.is_null());
         unsafe {
             clang_disposeIndex(self.index);
+        }
+    }
+}
+
+struct TU {
+    pub translation_unit: CXTranslationUnit,
+}
+
+impl TU {
+    fn new(
+        file_name: String,
+        index: &Index,
+        options: TUOptionsBuilder,
+    ) -> Result<TU, ParsingError> {
+        let c_file_name = CString::new(file_name);
+        let c_file_name = match c_file_name {
+            Ok(value) => value,
+            Err(_) => return Err(ParsingError::FileNameConversionProblem),
+        };
+        unsafe {
+            let mut result = TU {
+                translation_unit: ptr::null_mut(),
+            };
+            let command_line_args: *const *const c_char = ptr::null(); // FIXME
+            let command_line_args_num = 0;
+            let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
+            let unsaved_files_num = 0;
+            let parse_code = clang_parseTranslationUnit2(
+                index.index,
+                c_file_name.as_ptr(),
+                command_line_args,
+                command_line_args_num,
+                unsaved_files,
+                unsaved_files_num,
+                options.build(),
+                &mut result.translation_unit,
+            );
+
+            match parse_code {
+                clang_sys::CXError_Success => {
+                    assert!(!result.translation_unit.is_null());
+                    return Ok(result);
+                }
+                clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
+                clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
+                clang_sys::CXError_InvalidArguments => return Err(ParsingError::InvalidArguments),
+                clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
+                _ => return Err(ParsingError::UnknownError(parse_code)),
+            };
+        }
+    }
+}
+
+impl Drop for TU {
+    fn drop(&mut self) {
+        unsafe {
+            clang_disposeTranslationUnit(self.translation_unit);
         }
     }
 }
@@ -141,44 +197,10 @@ impl Source {
         diagnostics_mode: DiagnosticsMode,
         options: TUOptionsBuilder,
     ) -> Result<Source, ParsingError> {
-        let c_file_name = CString::new(file_name);
-        let c_file_name = match c_file_name {
-            Ok(value) => value,
-            Err(_) => return Err(ParsingError::FileNameConversionProblem),
-        };
+        let index = Index::new(phc_mode, diagnostics_mode)?;
+        let translation_unit = TU::new(file_name, &index, options)?;
         unsafe {
-            let index = Index::new(phc_mode, diagnostics_mode)?;
-
-            let command_line_args: *const *const c_char = ptr::null(); // FIXME
-            let command_line_args_num = 0;
-            let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
-            let unsaved_files_num = 0;
-            let mut translation_unit: CXTranslationUnit = ptr::null_mut();
-            let parse_code = clang_parseTranslationUnit2(
-                index.index,
-                c_file_name.as_ptr(),
-                command_line_args,
-                command_line_args_num,
-                unsaved_files,
-                unsaved_files_num,
-                options.build(),
-                &mut translation_unit,
-            );
-
-            match parse_code {
-                clang_sys::CXError_Success => (),
-                clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
-                clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
-                clang_sys::CXError_InvalidArguments => return Err(ParsingError::InvalidArguments),
-                clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
-                _ => return Err(ParsingError::UnknownError(parse_code)),
-            };
-            assert!(
-                !translation_unit.is_null(),
-                "Could not parse translation unit"
-            );
-
-            let cursor = clang_getTranslationUnitCursor(translation_unit);
+            let cursor = clang_getTranslationUnitCursor(translation_unit.translation_unit);
             let mut result: Source = Source {
                 cursor_data: vec![],
             };
@@ -188,7 +210,6 @@ impl Source {
                 &mut result as *mut _ as *mut std::ffi::c_void,
             );
 
-            clang_disposeTranslationUnit(translation_unit);
             Ok(result)
         }
     }
