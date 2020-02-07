@@ -103,6 +103,37 @@ extern "C" fn traverse_cursor(
     CXChildVisit_Recurse
 }
 
+struct Index {
+    pub index: CXIndex,
+}
+
+impl Index {
+    fn new(
+        phc_mode: DeclarationFromPHCMode,
+        diagnostics_mode: DiagnosticsMode,
+    ) -> Result<Index, ParsingError> {
+        let mut result = Index {
+            index: ptr::null_mut(),
+        };
+        unsafe {
+            result.index = clang_createIndex(phc_mode as i32, diagnostics_mode as i32);
+        }
+        if result.index.is_null() {
+            return Err(ParsingError::IndexCreationFailure);
+        }
+        Ok(result)
+    }
+}
+
+impl Drop for Index {
+    fn drop(&mut self) {
+        assert!(!self.index.is_null());
+        unsafe {
+            clang_disposeIndex(self.index);
+        }
+    }
+}
+
 impl Source {
     pub fn new(
         file_name: String,
@@ -116,10 +147,7 @@ impl Source {
             Err(_) => return Err(ParsingError::FileNameConversionProblem),
         };
         unsafe {
-            let index = clang_createIndex(phc_mode as i32, diagnostics_mode as i32);
-            if index.is_null() {
-                return Err(ParsingError::IndexCreationFailure);
-            }
+            let index = Index::new(phc_mode, diagnostics_mode)?;
 
             let command_line_args: *const *const c_char = ptr::null(); // FIXME
             let command_line_args_num = 0;
@@ -127,7 +155,7 @@ impl Source {
             let unsaved_files_num = 0;
             let mut translation_unit: CXTranslationUnit = ptr::null_mut();
             let parse_code = clang_parseTranslationUnit2(
-                index,
+                index.index,
                 c_file_name.as_ptr(),
                 command_line_args,
                 command_line_args_num,
@@ -161,7 +189,6 @@ impl Source {
             );
 
             clang_disposeTranslationUnit(translation_unit);
-            clang_disposeIndex(index);
             Ok(result)
         }
     }
