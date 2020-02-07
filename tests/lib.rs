@@ -12,13 +12,21 @@ use libclang_wrapper::index;
 
 #[cfg(not(feature = "runtime"))]
 #[test]
-fn create_index_test() {
-    let index = index::Index::new(
+fn parse_source() {
+    let source = index::Source::new(
         "tests/header.h".to_owned(),
         index::DeclarationFromPHCMode::Exclude,
         index::DiagnosticsMode::Enabled,
         index::TUOptionsBuilder::new(),
     );
+    match source {
+        Ok(source) => {
+            assert_eq!(source.cursor_data[0], "add");
+            assert_eq!(source.cursor_data[1], "a");
+            assert_eq!(source.cursor_data[2], "b");
+        }
+        Err(error) => panic!("{:?}", error),
+    };
 }
 
 #[test]
