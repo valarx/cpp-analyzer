@@ -199,19 +199,18 @@ impl Source {
     ) -> Result<Source, ParsingError> {
         let index = Index::new(phc_mode, diagnostics_mode)?;
         let translation_unit = TU::new(file_name, &index, options)?;
+        let mut result: Source = Source {
+            cursor_data: vec![],
+        };
         unsafe {
             let cursor = clang_getTranslationUnitCursor(translation_unit.translation_unit);
-            let mut result: Source = Source {
-                cursor_data: vec![],
-            };
             clang_visitChildren(
                 cursor,
                 traverse_cursor,
                 &mut result as *mut _ as *mut std::ffi::c_void,
             );
-
-            Ok(result)
         }
+        Ok(result)
     }
 }
 
