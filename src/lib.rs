@@ -1,4 +1,4 @@
-pub mod index;
+pub mod source;
 
 #[cfg(test)]
 mod tests {

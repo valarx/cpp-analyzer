@@ -1,29 +1,11 @@
+pub mod index;
+
+use crate::source::ParsingError;
 use clang_sys::*;
+use index::Index;
 use libc::c_char;
-use std::ffi::CStr;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ptr;
-
-pub enum DeclarationFromPHCMode {
-    Include = 0,
-    Exclude = 1,
-}
-
-pub enum DiagnosticsMode {
-    Disabled = 0,
-    Enabled = 1,
-}
-
-#[derive(Debug)]
-pub enum ParsingError {
-    FileNameConversionProblem,
-    IndexCreationFailure,
-    GenericFailure,
-    Crash,
-    InvalidArguments,
-    ASTReadError,
-    UnknownError(i32),
-}
 
 pub struct TUOptionsBuilder {
     resulting_options: i32,
@@ -80,8 +62,43 @@ impl TUOptionsBuilder {
     }
 }
 
-pub struct Source {
-    pub cursor_data: Vec<String>,
+pub enum CursorKind {
+    Unknown,
+    Struct,
+    Union,
+    Class,
+    Field,
+    Enum,
+    Function,
+    Variable,
+    Parameter,
+    Typedef,
+    Method,
+    Namespace,
+    LinkageSpec,
+    Constructor,
+    Destructor,
+    ConversionFunction,
+    TemplateTypeParameter,
+    TemplateNonTypeParameter,
+    TemplateTemplateParameter,
+    FunctionTemplate,
+    ClassTemplate,
+    ClassTemplatePartial,
+    NameSpaceAlias,
+    UsingDirective,
+    TypeAlias,
+    AccessSpecifier,
+}
+
+pub struct Cursor {
+    pub kind: CursorKind,
+    pub spelling: String,
+}
+
+pub struct TU {
+    pub translation_unit: CXTranslationUnit,
+    cursors: Vec<Cursor>,
 }
 
 extern "C" fn traverse_cursor(
@@ -90,79 +107,84 @@ extern "C" fn traverse_cursor(
     client_data: *mut core::ffi::c_void,
 ) -> CXChildVisitResult {
     unsafe {
-        let index = &mut *(client_data as *mut Source);
+        let translation_unit = &mut *(client_data as *mut TU);
         let cursor_spelling = clang_getCursorSpelling(current);
         let _cursor_kind_spelling = clang_getCursorKindSpelling(clang_getCursorKind(current));
         let cursor_spelling_as_string = clang_getCString(cursor_spelling);
         let cursor_spelling_as_string = CStr::from_ptr(cursor_spelling_as_string)
             .to_string_lossy()
             .into_owned();
-        index.cursor_data.push(cursor_spelling_as_string);
+        translation_unit.cursors.push(Cursor {
+            kind: CursorKind::Unknown,
+            spelling: cursor_spelling_as_string,
+        });
         clang_disposeString(cursor_spelling);
     }
     CXChildVisit_Recurse
 }
 
-impl Source {
+impl TU {
     pub fn new(
         file_name: String,
-        phc_mode: DeclarationFromPHCMode,
-        diagnostics_mode: DiagnosticsMode,
+        index: &Index,
         options: TUOptionsBuilder,
-    ) -> Result<Source, ParsingError> {
+    ) -> Result<TU, ParsingError> {
         let c_file_name = CString::new(file_name);
         let c_file_name = match c_file_name {
             Ok(value) => value,
             Err(_) => return Err(ParsingError::FileNameConversionProblem),
         };
         unsafe {
-            let index = clang_createIndex(phc_mode as i32, diagnostics_mode as i32);
-            if index.is_null() {
-                return Err(ParsingError::IndexCreationFailure);
-            }
-
+            let mut result = TU {
+                translation_unit: ptr::null_mut(),
+                cursors: vec![],
+            };
             let command_line_args: *const *const c_char = ptr::null(); // FIXME
             let command_line_args_num = 0;
             let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
             let unsaved_files_num = 0;
-            let mut translation_unit: CXTranslationUnit = ptr::null_mut();
             let parse_code = clang_parseTranslationUnit2(
-                index,
+                index.index,
                 c_file_name.as_ptr(),
                 command_line_args,
                 command_line_args_num,
                 unsaved_files,
                 unsaved_files_num,
                 options.build(),
-                &mut translation_unit,
+                &mut result.translation_unit,
             );
 
             match parse_code {
-                clang_sys::CXError_Success => (),
+                clang_sys::CXError_Success => {
+                    assert!(!result.translation_unit.is_null());
+                }
                 clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
                 clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
                 clang_sys::CXError_InvalidArguments => return Err(ParsingError::InvalidArguments),
                 clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
                 _ => return Err(ParsingError::UnknownError(parse_code)),
             };
-            assert!(
-                !translation_unit.is_null(),
-                "Could not parse translation unit"
-            );
 
-            let cursor = clang_getTranslationUnitCursor(translation_unit);
-            let mut result: Source = Source {
-                cursor_data: vec![],
-            };
+            let cursor = clang_getTranslationUnitCursor(result.translation_unit);
             clang_visitChildren(
                 cursor,
                 traverse_cursor,
                 &mut result as *mut _ as *mut std::ffi::c_void,
             );
 
-            clang_disposeTranslationUnit(translation_unit);
-            clang_disposeIndex(index);
             Ok(result)
+        }
+    }
+
+    pub fn get_cursors(&self) -> &Vec<Cursor> {
+        &self.cursors
+    }
+}
+
+impl Drop for TU {
+    fn drop(&mut self) {
+        unsafe {
+            clang_disposeTranslationUnit(self.translation_unit);
         }
     }
 }

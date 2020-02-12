@@ -1,6 +1,6 @@
 use clang_sys::*;
 use libclang_wrapper;
-use libclang_wrapper::index;
+use libclang_wrapper::source;
 
 //#[cfg(feature = "runtime")]
 //#[test]
@@ -13,17 +13,17 @@ use libclang_wrapper::index;
 #[cfg(not(feature = "runtime"))]
 #[test]
 fn parse_source() {
-    let source = index::Source::new(
+    let source = source::Source::new(
         "tests/header.h".to_owned(),
-        index::DeclarationFromPHCMode::Exclude,
-        index::DiagnosticsMode::Enabled,
-        index::TUOptionsBuilder::new(),
+        source::DeclarationFromPHCMode::Exclude,
+        source::DiagnosticsMode::Enabled,
+        source::TUOptionsBuilder::new(),
     );
     match source {
         Ok(source) => {
-            assert_eq!(source.cursor_data[0], "add");
-            assert_eq!(source.cursor_data[1], "a");
-            assert_eq!(source.cursor_data[2], "b");
+            assert_eq!(source.translation_units[0].get_cursors()[0].spelling, "add");
+            assert_eq!(source.translation_units[0].get_cursors()[1].spelling, "a");
+            assert_eq!(source.translation_units[0].get_cursors()[2].spelling, "b");
         }
         Err(error) => panic!("{:?}", error),
     };
