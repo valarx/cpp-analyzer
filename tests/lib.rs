@@ -21,9 +21,9 @@ fn parse_source() {
     );
     match source {
         Ok(source) => {
-            assert_eq!(source.cursor_data[0], "add");
-            assert_eq!(source.cursor_data[1], "a");
-            assert_eq!(source.cursor_data[2], "b");
+            assert_eq!(source.translation_units[0].get_cursors()[0].spelling, "add");
+            assert_eq!(source.translation_units[0].get_cursors()[1].spelling, "a");
+            assert_eq!(source.translation_units[0].get_cursors()[2].spelling, "b");
         }
         Err(error) => panic!("{:?}", error),
     };

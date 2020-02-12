@@ -4,7 +4,7 @@ use crate::source::ParsingError;
 use clang_sys::*;
 use index::Index;
 use libc::c_char;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ptr;
 
 pub struct TUOptionsBuilder {
@@ -62,8 +62,65 @@ impl TUOptionsBuilder {
     }
 }
 
+pub enum CursorKind {
+    Unknown,
+    Struct,
+    Union,
+    Class,
+    Field,
+    Enum,
+    Function,
+    Variable,
+    Parameter,
+    Typedef,
+    Method,
+    Namespace,
+    LinkageSpec,
+    Constructor,
+    Destructor,
+    ConversionFunction,
+    TemplateTypeParameter,
+    TemplateNonTypeParameter,
+    TemplateTemplateParameter,
+    FunctionTemplate,
+    ClassTemplate,
+    ClassTemplatePartial,
+    NameSpaceAlias,
+    UsingDirective,
+    TypeAlias,
+    AccessSpecifier,
+}
+
+pub struct Cursor {
+    pub kind: CursorKind,
+    pub spelling: String,
+}
+
 pub struct TU {
     pub translation_unit: CXTranslationUnit,
+    cursors: Vec<Cursor>,
+}
+
+extern "C" fn traverse_cursor(
+    current: CXCursor,
+    _parent: CXCursor,
+    client_data: *mut core::ffi::c_void,
+) -> CXChildVisitResult {
+    unsafe {
+        let translation_unit = &mut *(client_data as *mut TU);
+        let cursor_spelling = clang_getCursorSpelling(current);
+        let _cursor_kind_spelling = clang_getCursorKindSpelling(clang_getCursorKind(current));
+        let cursor_spelling_as_string = clang_getCString(cursor_spelling);
+        let cursor_spelling_as_string = CStr::from_ptr(cursor_spelling_as_string)
+            .to_string_lossy()
+            .into_owned();
+        translation_unit.cursors.push(Cursor {
+            kind: CursorKind::Unknown,
+            spelling: cursor_spelling_as_string,
+        });
+        clang_disposeString(cursor_spelling);
+    }
+    CXChildVisit_Recurse
 }
 
 impl TU {
@@ -80,6 +137,7 @@ impl TU {
         unsafe {
             let mut result = TU {
                 translation_unit: ptr::null_mut(),
+                cursors: vec![],
             };
             let command_line_args: *const *const c_char = ptr::null(); // FIXME
             let command_line_args_num = 0;
@@ -99,7 +157,6 @@ impl TU {
             match parse_code {
                 clang_sys::CXError_Success => {
                     assert!(!result.translation_unit.is_null());
-                    return Ok(result);
                 }
                 clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
                 clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
@@ -107,7 +164,20 @@ impl TU {
                 clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
                 _ => return Err(ParsingError::UnknownError(parse_code)),
             };
+
+            let cursor = clang_getTranslationUnitCursor(result.translation_unit);
+            clang_visitChildren(
+                cursor,
+                traverse_cursor,
+                &mut result as *mut _ as *mut std::ffi::c_void,
+            );
+
+            Ok(result)
         }
+    }
+
+    pub fn get_cursors(&self) -> &Vec<Cursor> {
+        &self.cursors
     }
 }
 
