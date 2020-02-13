@@ -62,43 +62,99 @@ impl TUOptionsBuilder {
     }
 }
 
-pub enum CursorKind {
-    Unknown,
-    Struct,
-    Union,
-    Class,
-    Field,
-    Enum,
-    Function,
-    Variable,
-    Parameter,
-    Typedef,
-    Method,
-    Namespace,
-    LinkageSpec,
-    Constructor,
-    Destructor,
-    ConversionFunction,
-    TemplateTypeParameter,
-    TemplateNonTypeParameter,
-    TemplateTemplateParameter,
-    FunctionTemplate,
-    ClassTemplate,
-    ClassTemplatePartial,
-    NameSpaceAlias,
-    UsingDirective,
-    TypeAlias,
-    AccessSpecifier,
+#[derive(Debug, PartialEq)]
+pub enum AccessSpecifierType {
+    Invalid,
+    Public,
+    Protected,
+    Private,
 }
 
-pub struct Cursor {
-    pub kind: CursorKind,
-    pub spelling: String,
+#[derive(Debug, PartialEq)]
+pub enum CursorKind {
+    Unknown(String),
+    Struct(String),
+    Union(String),
+    Class(String),
+    Field(String),
+    Enum(String),
+    EnumConstant(String),
+    Function(String),
+    Variable(String),
+    Parameter(String),
+    Typedef(String),
+    Method(String),
+    Namespace(String),
+    LinkageSpec(String),
+    Constructor(String),
+    Destructor(String),
+    ConversionFunction(String),
+    TemplateTypeParameter(String),
+    TemplateNonTypeParameter(String),
+    TemplateTemplateParameter(String),
+    FunctionTemplate(String),
+    ClassTemplate(String),
+    ClassTemplatePartial(String),
+    NamespaceAlias(String),
+    UsingDirective(String),
+    TypeAlias(String),
+    AccessSpecifier(AccessSpecifierType),
+    NotSupported(String),
 }
 
 pub struct TU {
     pub translation_unit: CXTranslationUnit,
-    cursors: Vec<Cursor>,
+    cursors: Vec<CursorKind>,
+}
+
+fn map_cursor_kind(cursor: CXCursor, clang_kind: i32, kind_spelling: String) -> CursorKind {
+    match clang_kind {
+        clang_sys::CXCursor_UnexposedDecl => CursorKind::Unknown(kind_spelling),
+        clang_sys::CXCursor_StructDecl => CursorKind::Struct(kind_spelling),
+        clang_sys::CXCursor_UnionDecl => CursorKind::Union(kind_spelling),
+        clang_sys::CXCursor_ClassDecl => CursorKind::Class(kind_spelling),
+        clang_sys::CXCursor_FieldDecl => CursorKind::Field(kind_spelling),
+        clang_sys::CXCursor_EnumDecl => CursorKind::Enum(kind_spelling),
+        clang_sys::CXCursor_EnumConstantDecl => CursorKind::EnumConstant(kind_spelling),
+        clang_sys::CXCursor_FunctionDecl => CursorKind::Function(kind_spelling),
+        clang_sys::CXCursor_VarDecl => CursorKind::Variable(kind_spelling),
+        clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(kind_spelling),
+        clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(kind_spelling),
+        clang_sys::CXCursor_CXXMethod => CursorKind::Method(kind_spelling),
+        clang_sys::CXCursor_Namespace => CursorKind::Namespace(kind_spelling),
+        clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(kind_spelling),
+        clang_sys::CXCursor_Constructor => CursorKind::Constructor(kind_spelling),
+        clang_sys::CXCursor_Destructor => CursorKind::Destructor(kind_spelling),
+        clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(kind_spelling),
+        clang_sys::CXCursor_TemplateTypeParameter => {
+            CursorKind::TemplateTypeParameter(kind_spelling)
+        }
+        clang_sys::CXCursor_NonTypeTemplateParameter => {
+            CursorKind::TemplateNonTypeParameter(kind_spelling)
+        }
+        clang_sys::CXCursor_TemplateTemplateParameter => {
+            CursorKind::TemplateTemplateParameter(kind_spelling)
+        }
+        clang_sys::CXCursor_FunctionTemplate => CursorKind::FunctionTemplate(kind_spelling),
+        clang_sys::CXCursor_ClassTemplate => CursorKind::ClassTemplate(kind_spelling),
+        clang_sys::CXCursor_ClassTemplatePartialSpecialization => {
+            CursorKind::ClassTemplatePartial(kind_spelling)
+        }
+        clang_sys::CXCursor_NamespaceAlias => CursorKind::NamespaceAlias(kind_spelling),
+        clang_sys::CXCursor_UsingDirective => CursorKind::UsingDirective(kind_spelling),
+        clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(kind_spelling),
+        clang_sys::CXCursor_CXXAccessSpecifier => unsafe {
+            let access_specifier_type = clang_getCXXAccessSpecifier(cursor);
+            let access_specifier_type = match access_specifier_type {
+                clang_sys::CX_CXXPrivate => AccessSpecifierType::Private,
+                clang_sys::CX_CXXProtected => AccessSpecifierType::Protected,
+                clang_sys::CX_CXXPublic => AccessSpecifierType::Public,
+                _ => AccessSpecifierType::Invalid,
+            };
+            CursorKind::AccessSpecifier(access_specifier_type)
+        },
+        _ => CursorKind::NotSupported(kind_spelling),
+    }
 }
 
 extern "C" fn traverse_cursor(
@@ -109,15 +165,18 @@ extern "C" fn traverse_cursor(
     unsafe {
         let translation_unit = &mut *(client_data as *mut TU);
         let cursor_spelling = clang_getCursorSpelling(current);
-        let _cursor_kind_spelling = clang_getCursorKindSpelling(clang_getCursorKind(current));
+        let cursor_kind = clang_getCursorKind(current);
+
         let cursor_spelling_as_string = clang_getCString(cursor_spelling);
         let cursor_spelling_as_string = CStr::from_ptr(cursor_spelling_as_string)
             .to_string_lossy()
             .into_owned();
-        translation_unit.cursors.push(Cursor {
-            kind: CursorKind::Unknown,
-            spelling: cursor_spelling_as_string,
-        });
+
+        translation_unit.cursors.push(map_cursor_kind(
+            current,
+            cursor_kind,
+            cursor_spelling_as_string,
+        ));
         clang_disposeString(cursor_spelling);
     }
     CXChildVisit_Recurse
@@ -127,6 +186,7 @@ impl TU {
     pub fn new(
         file_name: String,
         index: &Index,
+        command_line_args: Vec<String>,
         options: TUOptionsBuilder,
     ) -> Result<TU, ParsingError> {
         let c_file_name = CString::new(file_name);
@@ -139,15 +199,22 @@ impl TU {
                 translation_unit: ptr::null_mut(),
                 cursors: vec![],
             };
-            let command_line_args: *const *const c_char = ptr::null(); // FIXME
-            let command_line_args_num = 0;
+            let command_line_args: Vec<_> = command_line_args
+                .into_iter()
+                .map(|value| CString::new(value).unwrap())
+                .collect();
+            let mut command_line_args_char_vec: Vec<*const c_char> = vec![];
+            for arg in &command_line_args {
+                command_line_args_char_vec.push(arg.as_ptr());
+            }
+
             let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
             let unsaved_files_num = 0;
             let parse_code = clang_parseTranslationUnit2(
                 index.index,
                 c_file_name.as_ptr(),
-                command_line_args,
-                command_line_args_num,
+                command_line_args_char_vec.as_ptr(),
+                command_line_args_char_vec.len() as i32,
                 unsaved_files,
                 unsaved_files_num,
                 options.build(),
@@ -176,7 +243,7 @@ impl TU {
         }
     }
 
-    pub fn get_cursors(&self) -> &Vec<Cursor> {
+    pub fn get_cursors(&self) -> &Vec<CursorKind> {
         &self.cursors
     }
 }
