@@ -1,20 +1,11 @@
 mod translation_unit;
 
 use translation_unit::index::Index;
+pub use translation_unit::index::{DeclarationFromPHCMode, DiagnosticsMode};
 pub use translation_unit::AccessSpecifierType;
 pub use translation_unit::CursorKind;
 pub use translation_unit::TUOptionsBuilder;
 use translation_unit::TU;
-
-pub enum DeclarationFromPHCMode {
-    Include = 0,
-    Exclude = 1,
-}
-
-pub enum DiagnosticsMode {
-    Disabled = 0,
-    Enabled = 1,
-}
 
 #[derive(Debug)]
 pub enum ParsingError {

@@ -1,6 +1,16 @@
-use crate::source::{DeclarationFromPHCMode, DiagnosticsMode, ParsingError};
+use crate::source::ParsingError;
 use clang_sys::*;
 use std::ptr;
+
+pub enum DeclarationFromPHCMode {
+    Include = 0,
+    Exclude = 1,
+}
+
+pub enum DiagnosticsMode {
+    Disabled = 0,
+    Enabled = 1,
+}
 
 pub struct Index {
     pub index: CXIndex,
