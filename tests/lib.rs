@@ -48,18 +48,64 @@ fn parse_class_in_namespace() {
         Ok(source) => {
             let cursors = source.translation_units[0].get_cursors();
             assert_eq!(cursors[0], CursorKind::Namespace("my_namespace".to_owned()));
-            assert_eq!(cursors[1], CursorKind::Class("MyTestClass".to_owned()));
-            assert_eq!(cursors[2], CursorKind::Field("field".to_owned()));
+            assert_eq!(
+                cursors[1],
+                CursorKind::Class("MyTestClass".to_owned(), AccessSpecifierType::Invalid)
+            );
+            assert_eq!(
+                cursors[2],
+                CursorKind::Struct("PrivateStruct".to_owned(), AccessSpecifierType::Private)
+            );
             assert_eq!(
                 cursors[3],
+                CursorKind::Field("field".to_owned(), AccessSpecifierType::Private)
+            );
+            assert_eq!(
+                cursors[4],
                 CursorKind::AccessSpecifier(AccessSpecifierType::Public)
             );
-            assert_eq!(cursors[4], CursorKind::Field("field1".to_owned()));
             assert_eq!(
                 cursors[5],
+                CursorKind::Field("field1".to_owned(), AccessSpecifierType::Public)
+            );
+            assert_eq!(
+                cursors[6],
+                CursorKind::Constructor("MyTestClass".to_owned(), AccessSpecifierType::Public)
+            );
+            assert_eq!(
+                cursors[7],
+                CursorKind::Constructor("MyTestClass".to_owned(), AccessSpecifierType::Public)
+            );
+            assert_eq!(cursors[8], CursorKind::Parameter("".to_owned()));
+            assert_eq!(
+                cursors[9],
+                CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
+            );
+            assert_eq!(
+                cursors[10],
+                CursorKind::Method("operator=".to_owned(), AccessSpecifierType::Public)
+            );
+            assert_eq!(
+                cursors[11],
+                CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
+            );
+            assert_eq!(cursors[12], CursorKind::Parameter("".to_owned()));
+            assert_eq!(
+                cursors[13],
+                CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
+            );
+            assert_eq!(
+                cursors[14],
                 CursorKind::AccessSpecifier(AccessSpecifierType::Protected)
             );
-            assert_eq!(cursors[6], CursorKind::Field("field3".to_owned()));
+            assert_eq!(
+                cursors[15],
+                CursorKind::Field("field3".to_owned(), AccessSpecifierType::Protected)
+            );
+            assert_eq!(
+                cursors[16],
+                CursorKind::Method("test_method".to_owned(), AccessSpecifierType::Protected)
+            );
         }
         Err(error) => panic!("{:?}", error),
     };

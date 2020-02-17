@@ -3,13 +3,18 @@
 
 namespace my_namespace {
 class MyTestClass {
+  struct PrivateStruct {};
   int field;
 
 public:
   float field1;
+  MyTestClass();
+  MyTestClass(const MyTestClass &);
+  MyTestClass &operator=(const MyTestClass &);
 
 protected:
   bool field3;
+  void test_method();
 };
 } // namespace my_namespace
 #endif

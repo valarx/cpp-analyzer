@@ -73,22 +73,22 @@ pub enum AccessSpecifierType {
 #[derive(Debug, PartialEq)]
 pub enum CursorKind {
     Unknown(String),
-    Struct(String),
-    Union(String),
-    Class(String),
-    Field(String),
-    Enum(String),
+    Struct(String, AccessSpecifierType),
+    Union(String, AccessSpecifierType),
+    Class(String, AccessSpecifierType),
+    Field(String, AccessSpecifierType),
+    Enum(String, AccessSpecifierType),
     EnumConstant(String),
     Function(String),
     Variable(String),
     Parameter(String),
-    Typedef(String),
-    Method(String),
+    Typedef(String, AccessSpecifierType),
+    Method(String, AccessSpecifierType),
     Namespace(String),
     LinkageSpec(String),
-    Constructor(String),
-    Destructor(String),
-    ConversionFunction(String),
+    Constructor(String, AccessSpecifierType),
+    Destructor(String, AccessSpecifierType),
+    ConversionFunction(String, AccessSpecifierType),
     TemplateTypeParameter(String),
     TemplateNonTypeParameter(String),
     TemplateTemplateParameter(String),
@@ -97,9 +97,11 @@ pub enum CursorKind {
     ClassTemplatePartial(String),
     NamespaceAlias(String),
     UsingDirective(String),
-    TypeAlias(String),
+    TypeAlias(String, AccessSpecifierType),
     AccessSpecifier(AccessSpecifierType),
-    NotSupported(String),
+    TypeReference(String),
+    BaseSpecifier(String),
+    NotSupported(String, i32),
 }
 
 pub struct TU {
@@ -107,53 +109,70 @@ pub struct TU {
     cursors: Vec<CursorKind>,
 }
 
-fn map_cursor_kind(cursor: CXCursor, clang_kind: i32, kind_spelling: String) -> CursorKind {
-    match clang_kind {
-        clang_sys::CXCursor_UnexposedDecl => CursorKind::Unknown(kind_spelling),
-        clang_sys::CXCursor_StructDecl => CursorKind::Struct(kind_spelling),
-        clang_sys::CXCursor_UnionDecl => CursorKind::Union(kind_spelling),
-        clang_sys::CXCursor_ClassDecl => CursorKind::Class(kind_spelling),
-        clang_sys::CXCursor_FieldDecl => CursorKind::Field(kind_spelling),
-        clang_sys::CXCursor_EnumDecl => CursorKind::Enum(kind_spelling),
-        clang_sys::CXCursor_EnumConstantDecl => CursorKind::EnumConstant(kind_spelling),
-        clang_sys::CXCursor_FunctionDecl => CursorKind::Function(kind_spelling),
-        clang_sys::CXCursor_VarDecl => CursorKind::Variable(kind_spelling),
-        clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(kind_spelling),
-        clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(kind_spelling),
-        clang_sys::CXCursor_CXXMethod => CursorKind::Method(kind_spelling),
-        clang_sys::CXCursor_Namespace => CursorKind::Namespace(kind_spelling),
-        clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(kind_spelling),
-        clang_sys::CXCursor_Constructor => CursorKind::Constructor(kind_spelling),
-        clang_sys::CXCursor_Destructor => CursorKind::Destructor(kind_spelling),
-        clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(kind_spelling),
-        clang_sys::CXCursor_TemplateTypeParameter => {
-            CursorKind::TemplateTypeParameter(kind_spelling)
+fn get_access_specifier(cursor: CXCursor) -> AccessSpecifierType {
+    unsafe {
+        let access_specifier_type = clang_getCXXAccessSpecifier(cursor);
+        match access_specifier_type {
+            clang_sys::CX_CXXPrivate => AccessSpecifierType::Private,
+            clang_sys::CX_CXXProtected => AccessSpecifierType::Protected,
+            clang_sys::CX_CXXPublic => AccessSpecifierType::Public,
+            _ => AccessSpecifierType::Invalid,
         }
+    }
+}
+
+fn map_cursor_kind(cursor: CXCursor, clang_kind: i32, spelling: String) -> CursorKind {
+    match clang_kind {
+        clang_sys::CXCursor_UnexposedDecl => CursorKind::Unknown(spelling),
+        clang_sys::CXCursor_StructDecl => {
+            CursorKind::Struct(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_UnionDecl => CursorKind::Union(spelling, get_access_specifier(cursor)),
+        clang_sys::CXCursor_ClassDecl => CursorKind::Class(spelling, get_access_specifier(cursor)),
+        clang_sys::CXCursor_FieldDecl => CursorKind::Field(spelling, get_access_specifier(cursor)),
+        clang_sys::CXCursor_EnumDecl => CursorKind::Enum(spelling, get_access_specifier(cursor)),
+        clang_sys::CXCursor_EnumConstantDecl => CursorKind::EnumConstant(spelling),
+        clang_sys::CXCursor_FunctionDecl => CursorKind::Function(spelling),
+        clang_sys::CXCursor_VarDecl => CursorKind::Variable(spelling),
+        clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(spelling),
+        clang_sys::CXCursor_TypedefDecl => {
+            CursorKind::Typedef(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_CXXMethod => CursorKind::Method(spelling, get_access_specifier(cursor)),
+        clang_sys::CXCursor_Namespace => CursorKind::Namespace(spelling),
+        clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(spelling),
+        clang_sys::CXCursor_Constructor => {
+            CursorKind::Constructor(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_Destructor => {
+            CursorKind::Destructor(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_ConversionFunction => {
+            CursorKind::ConversionFunction(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_TemplateTypeParameter => CursorKind::TemplateTypeParameter(spelling),
         clang_sys::CXCursor_NonTypeTemplateParameter => {
-            CursorKind::TemplateNonTypeParameter(kind_spelling)
+            CursorKind::TemplateNonTypeParameter(spelling)
         }
         clang_sys::CXCursor_TemplateTemplateParameter => {
-            CursorKind::TemplateTemplateParameter(kind_spelling)
+            CursorKind::TemplateTemplateParameter(spelling)
         }
-        clang_sys::CXCursor_FunctionTemplate => CursorKind::FunctionTemplate(kind_spelling),
-        clang_sys::CXCursor_ClassTemplate => CursorKind::ClassTemplate(kind_spelling),
+        clang_sys::CXCursor_FunctionTemplate => CursorKind::FunctionTemplate(spelling),
+        clang_sys::CXCursor_ClassTemplate => CursorKind::ClassTemplate(spelling),
         clang_sys::CXCursor_ClassTemplatePartialSpecialization => {
-            CursorKind::ClassTemplatePartial(kind_spelling)
+            CursorKind::ClassTemplatePartial(spelling)
         }
-        clang_sys::CXCursor_NamespaceAlias => CursorKind::NamespaceAlias(kind_spelling),
-        clang_sys::CXCursor_UsingDirective => CursorKind::UsingDirective(kind_spelling),
-        clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(kind_spelling),
-        clang_sys::CXCursor_CXXAccessSpecifier => unsafe {
-            let access_specifier_type = clang_getCXXAccessSpecifier(cursor);
-            let access_specifier_type = match access_specifier_type {
-                clang_sys::CX_CXXPrivate => AccessSpecifierType::Private,
-                clang_sys::CX_CXXProtected => AccessSpecifierType::Protected,
-                clang_sys::CX_CXXPublic => AccessSpecifierType::Public,
-                _ => AccessSpecifierType::Invalid,
-            };
-            CursorKind::AccessSpecifier(access_specifier_type)
-        },
-        _ => CursorKind::NotSupported(kind_spelling),
+        clang_sys::CXCursor_NamespaceAlias => CursorKind::NamespaceAlias(spelling),
+        clang_sys::CXCursor_UsingDirective => CursorKind::UsingDirective(spelling),
+        clang_sys::CXCursor_TypeAliasDecl => {
+            CursorKind::TypeAlias(spelling, get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_CXXAccessSpecifier => {
+            CursorKind::AccessSpecifier(get_access_specifier(cursor))
+        }
+        clang_sys::CXCursor_TypeRef => CursorKind::TypeReference(spelling),
+        clang_sys::CXCursor_CXXBaseSpecifier => CursorKind::BaseSpecifier(spelling),
+        _ => CursorKind::NotSupported(spelling, clang_kind),
     }
 }
 
