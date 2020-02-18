@@ -11,7 +11,7 @@ use libclang_wrapper::source;
 //}
 
 use libclang_wrapper::source::AccessSpecifierType;
-use libclang_wrapper::source::CursorKind;
+use libclang_wrapper::source::{CursorKind, CursorType};
 
 #[cfg(not(feature = "runtime"))]
 #[test]
@@ -26,9 +26,18 @@ fn parse_single_function() {
     match source {
         Ok(source) => {
             let cursors = source.translation_units[0].get_cursors();
-            assert_eq!(cursors[0], CursorKind::Function("add".to_owned()));
-            assert_eq!(cursors[1], CursorKind::Parameter("a".to_owned()));
-            assert_eq!(cursors[2], CursorKind::Parameter("b".to_owned()));
+            assert_eq!(
+                cursors[0],
+                CursorKind::Function("add".to_owned(), CursorType::FunctionProto)
+            );
+            assert_eq!(
+                cursors[1],
+                CursorKind::Parameter("a".to_owned(), CursorType::Int)
+            );
+            assert_eq!(
+                cursors[2],
+                CursorKind::Parameter("b".to_owned(), CursorType::Int)
+            );
         }
         Err(error) => panic!("{:?}", error),
     };
@@ -58,7 +67,11 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[3],
-                CursorKind::Field("field".to_owned(), AccessSpecifierType::Private)
+                CursorKind::Field(
+                    "field".to_owned(),
+                    AccessSpecifierType::Private,
+                    CursorType::Int
+                )
             );
             assert_eq!(
                 cursors[4],
@@ -66,7 +79,11 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[5],
-                CursorKind::Field("field1".to_owned(), AccessSpecifierType::Public)
+                CursorKind::Field(
+                    "field1".to_owned(),
+                    AccessSpecifierType::Public,
+                    CursorType::Float
+                )
             );
             assert_eq!(
                 cursors[6],
@@ -76,20 +93,30 @@ fn parse_class_in_namespace() {
                 cursors[7],
                 CursorKind::Constructor("MyTestClass".to_owned(), AccessSpecifierType::Public)
             );
-            assert_eq!(cursors[8], CursorKind::Parameter("".to_owned()));
+            assert_eq!(
+                cursors[8],
+                CursorKind::Parameter("".to_owned(), CursorType::LValueReference)
+            );
             assert_eq!(
                 cursors[9],
                 CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
             );
             assert_eq!(
                 cursors[10],
-                CursorKind::Method("operator=".to_owned(), AccessSpecifierType::Public)
+                CursorKind::Method(
+                    "operator=".to_owned(),
+                    AccessSpecifierType::Public,
+                    CursorType::FunctionProto
+                )
             );
             assert_eq!(
                 cursors[11],
                 CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
             );
-            assert_eq!(cursors[12], CursorKind::Parameter("".to_owned()));
+            assert_eq!(
+                cursors[12],
+                CursorKind::Parameter("".to_owned(), CursorType::LValueReference)
+            );
             assert_eq!(
                 cursors[13],
                 CursorKind::TypeReference("class my_namespace::MyTestClass".to_owned())
@@ -100,11 +127,19 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[15],
-                CursorKind::Field("field3".to_owned(), AccessSpecifierType::Protected)
+                CursorKind::Field(
+                    "field3".to_owned(),
+                    AccessSpecifierType::Protected,
+                    CursorType::Bool
+                )
             );
             assert_eq!(
                 cursors[16],
-                CursorKind::Method("test_method".to_owned(), AccessSpecifierType::Protected)
+                CursorKind::Method(
+                    "test_method".to_owned(),
+                    AccessSpecifierType::Protected,
+                    CursorType::FunctionProto
+                )
             );
         }
         Err(error) => panic!("{:?}", error),
