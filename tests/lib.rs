@@ -2,25 +2,16 @@ use clang_sys::*;
 use libclang_wrapper;
 use libclang_wrapper::source;
 
-//#[cfg(feature = "runtime")]
-//#[test]
-//fn test() {
-//    load().unwrap();
-//    parse();
-//    unload().unwrap();
-//}
-
 use libclang_wrapper::source::AccessSpecifierType;
 use libclang_wrapper::source::{CursorKind, CursorType};
 
-#[cfg(not(feature = "runtime"))]
 #[test]
 fn parse_single_function() {
     let source = source::Source::new(
         "tests/header.h".to_owned(),
         source::DeclarationFromPHCMode::Exclude,
         source::DiagnosticsMode::Enabled,
-        vec![],
+        vec!["-x".to_owned(), "c++".to_owned()],
         source::TUOptionsBuilder::new(),
     );
     match source {
@@ -28,7 +19,11 @@ fn parse_single_function() {
             let cursors = source.translation_units[0].get_cursors();
             assert_eq!(
                 cursors[0],
-                CursorKind::Function("add".to_owned(), CursorType::FunctionProto)
+                CursorKind::Function {
+                    spelling: "add".to_owned(),
+                    cur_type: CursorType::FunctionProto,
+                    return_type: CursorType::Int
+                }
             );
             assert_eq!(
                 cursors[1],
@@ -38,12 +33,36 @@ fn parse_single_function() {
                 cursors[2],
                 CursorKind::Parameter("b".to_owned(), CursorType::Int)
             );
+            assert_eq!(
+                cursors[3],
+                CursorKind::Function {
+                    spelling: "function_with_param".to_owned(),
+                    cur_type: CursorType::FunctionProto,
+                    return_type: CursorType::LValueReference
+                }
+            );
+            assert_eq!(
+                cursors[4],
+                CursorKind::Parameter("k".to_owned(), CursorType::LValueReference)
+            );
+            assert_eq!(cursors[5], CursorKind::CompoundStatement);
+            assert_eq!(cursors[6], CursorKind::BinaryOperator);
+            assert_eq!(
+                cursors[7],
+                CursorKind::DeclarationReferenceExpression("k".to_owned())
+            );
+            assert_eq!(cursors[8], CursorKind::FloatLiteral);
+            assert_eq!(cursors[9], CursorKind::ReturnStatement);
+
+            assert_eq!(
+                cursors[10],
+                CursorKind::DeclarationReferenceExpression("k".to_owned())
+            );
         }
         Err(error) => panic!("{:?}", error),
     };
 }
 
-#[cfg(not(feature = "runtime"))]
 #[test]
 fn parse_class_in_namespace() {
     let source = source::Source::new(
@@ -103,11 +122,12 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[10],
-                CursorKind::Method(
-                    "operator=".to_owned(),
-                    AccessSpecifierType::Public,
-                    CursorType::FunctionProto
-                )
+                CursorKind::Method {
+                    spelling: "operator=".to_owned(),
+                    access_specifier: AccessSpecifierType::Public,
+                    cur_type: CursorType::FunctionProto,
+                    return_type: CursorType::LValueReference
+                }
             );
             assert_eq!(
                 cursors[11],
@@ -135,11 +155,12 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[16],
-                CursorKind::Method(
-                    "test_method".to_owned(),
-                    AccessSpecifierType::Protected,
-                    CursorType::FunctionProto
-                )
+                CursorKind::Method {
+                    spelling: "test_method".to_owned(),
+                    access_specifier: AccessSpecifierType::Protected,
+                    cur_type: CursorType::FunctionProto,
+                    return_type: CursorType::Void
+                }
             );
         }
         Err(error) => panic!("{:?}", error),
