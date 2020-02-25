@@ -93,11 +93,18 @@ pub enum CursorKind {
     Field(String, AccessSpecifierType, CursorType),
     Enum(String, AccessSpecifierType),
     EnumConstant(String),
-    Function(String, CursorType),
+    Function {
+        spelling: String,
+        cur_type: CursorType,
+    },
     Variable(String, CursorType),
     Parameter(String, CursorType),
     Typedef(String, AccessSpecifierType),
-    Method(String, AccessSpecifierType, CursorType),
+    Method {
+        spelling: String,
+        access_specifier: AccessSpecifierType,
+        cur_type: CursorType,
+    },
     Namespace(String),
     LinkageSpec(String),
     Constructor(String, AccessSpecifierType),
@@ -240,13 +247,18 @@ impl From<CXCursor> for CursorKind {
                 }
                 clang_sys::CXCursor_EnumDecl => CursorKind::Enum(spelling, cursor.into()),
                 clang_sys::CXCursor_EnumConstantDecl => CursorKind::EnumConstant(spelling),
-                clang_sys::CXCursor_FunctionDecl => CursorKind::Function(spelling, cursor.into()),
+                clang_sys::CXCursor_FunctionDecl => CursorKind::Function {
+                    spelling,
+                    cur_type: cursor.into(),
+                },
                 clang_sys::CXCursor_VarDecl => CursorKind::Variable(spelling, cursor.into()),
                 clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(spelling, cursor.into()),
                 clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(spelling, cursor.into()),
-                clang_sys::CXCursor_CXXMethod => {
-                    CursorKind::Method(spelling, cursor.into(), cursor.into())
-                }
+                clang_sys::CXCursor_CXXMethod => CursorKind::Method {
+                    spelling,
+                    access_specifier: cursor.into(),
+                    cur_type: cursor.into(),
+                },
                 clang_sys::CXCursor_Namespace => CursorKind::Namespace(spelling),
                 clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(spelling),
                 clang_sys::CXCursor_Constructor => CursorKind::Constructor(spelling, cursor.into()),
