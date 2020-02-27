@@ -1,5 +1,6 @@
 use clang_sys::*;
 use std::ffi::CStr;
+use std::ptr;
 
 #[derive(Debug, PartialEq)]
 pub enum AccessSpecifierType {
@@ -93,14 +94,22 @@ pub enum ConstructorType {
     Move,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Position {
-    pub line: i32,
-    pub col: i32,
+    pub file_name: String,
+    pub line: u32,
+    pub col: u32,
 }
-
+#[derive(Debug, PartialEq)]
 pub struct CodeSpan {
     pub start_pos: Position,
     pub end_pos: Position,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Virtuality {
+    NonVirtual,
+    Virtual,
 }
 
 #[derive(Debug, PartialEq)]
@@ -108,7 +117,7 @@ pub enum CursorKind {
     Unexposed(String),
     Struct(String, AccessSpecifierType),
     Union(String, AccessSpecifierType),
-    Class(String, AccessSpecifierType),
+    Class(String, CodeSpan, AccessSpecifierType),
     Field(String, AccessSpecifierType, CursorType),
     Enum(String, AccessSpecifierType),
     EnumConstant(String),
@@ -208,6 +217,46 @@ fn get_constructor_type(cursor: CXCursor) -> ConstructorType {
     }
 }
 
+fn get_cursor_extent(cursor: CXCursor) -> CodeSpan {
+    unsafe {
+        let extent = clang_getCursorExtent(cursor);
+        let begin = clang_getRangeStart(extent);
+        let end = clang_getRangeEnd(extent);
+        let mut begin_line: u32 = 0;
+        let mut begin_col: u32 = 0;
+        let mut begin_file: CXFile = ptr::null_mut();
+        let mut end_line: u32 = 0;
+        let mut end_col: u32 = 0;
+        let mut end_file: CXFile = ptr::null_mut();
+        clang_getSpellingLocation(
+            begin,
+            &mut begin_file,
+            &mut begin_line,
+            &mut begin_col,
+            ptr::null_mut(),
+        );
+        clang_getSpellingLocation(
+            end,
+            &mut end_file,
+            &mut end_line,
+            &mut end_col,
+            ptr::null_mut(),
+        );
+        CodeSpan {
+            start_pos: Position {
+                file_name: convert_into_owned(clang_getFileName(begin_file)),
+                line: begin_line,
+                col: begin_col,
+            },
+            end_pos: Position {
+                file_name: convert_into_owned(clang_getFileName(end_file)),
+                line: end_line,
+                col: end_col,
+            },
+        }
+    }
+}
+
 impl From<i32> for CursorType {
     fn from(cursor_type: i32) -> Self {
         match cursor_type {
@@ -286,14 +335,22 @@ impl From<i32> for AccessSpecifierType {
     }
 }
 
+fn convert_into_owned(clang_string: CXString) -> String {
+    unsafe {
+        let string = clang_getCString(clang_string);
+        let string = CStr::from_ptr(string).to_string_lossy().into_owned();
+        clang_disposeString(clang_string);
+        string
+    }
+}
+
 impl From<CXCursor> for CursorKind {
     fn from(cursor: CXCursor) -> Self {
         unsafe {
             let cursor_spelling = clang_getCursorSpelling(cursor);
             let cursor_kind = clang_getCursorKind(cursor);
 
-            let spelling = clang_getCString(cursor_spelling);
-            let spelling = CStr::from_ptr(spelling).to_string_lossy().into_owned();
+            let spelling = convert_into_owned(cursor_spelling);
             let cursor_kind = match cursor_kind {
                 clang_sys::CXCursor_UnexposedDecl => CursorKind::Unexposed(spelling),
                 clang_sys::CXCursor_StructDecl => {
@@ -302,9 +359,11 @@ impl From<CXCursor> for CursorKind {
                 clang_sys::CXCursor_UnionDecl => {
                     CursorKind::Union(spelling, get_access_specifier(cursor).into())
                 }
-                clang_sys::CXCursor_ClassDecl => {
-                    CursorKind::Class(spelling, get_access_specifier(cursor).into())
-                }
+                clang_sys::CXCursor_ClassDecl => CursorKind::Class(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
                 clang_sys::CXCursor_FieldDecl => CursorKind::Field(
                     spelling,
                     get_access_specifier(cursor).into(),
@@ -380,7 +439,6 @@ impl From<CXCursor> for CursorKind {
                 clang_sys::CXCursor_ReturnStmt => CursorKind::ReturnStatement,
                 _ => CursorKind::NotSupported(spelling, cursor_kind),
             };
-            clang_disposeString(cursor_spelling);
             cursor_kind
         }
     }

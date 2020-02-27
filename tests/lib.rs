@@ -3,7 +3,7 @@ use libclang_wrapper;
 use libclang_wrapper::source;
 
 use libclang_wrapper::source::{
-    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType,
+    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Position,
 };
 
 #[test]
@@ -79,7 +79,22 @@ fn parse_class_in_namespace() {
             assert_eq!(cursors[0], CursorKind::Namespace("my_namespace".to_owned()));
             assert_eq!(
                 cursors[1],
-                CursorKind::Class("MyTestClass".to_owned(), AccessSpecifierType::Invalid)
+                CursorKind::Class(
+                    "MyTestClass".to_owned(),
+                    CodeSpan {
+                        start_pos: Position {
+                            file_name: "tests/class.h".to_owned(),
+                            line: 5,
+                            col: 1
+                        },
+                        end_pos: Position {
+                            file_name: "tests/class.h".to_owned(),
+                            line: 19,
+                            col: 2
+                        }
+                    },
+                    AccessSpecifierType::Invalid
+                )
             );
             assert_eq!(
                 cursors[2],
