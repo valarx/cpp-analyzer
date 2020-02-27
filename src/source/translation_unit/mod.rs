@@ -77,8 +77,9 @@ extern "C" fn traverse_cursor(
     unsafe {
         let translation_unit = &mut *(client_data as *mut TU);
         translation_unit.cursors.push(current.into());
+        clang_visitChildren(current, traverse_cursor, client_data);
     }
-    CXChildVisit_Recurse
+    CXChildVisit_Continue
 }
 
 impl TU {
