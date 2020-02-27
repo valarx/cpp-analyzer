@@ -85,6 +85,25 @@ pub enum TemplateArgumentKind {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum ConstructorType {
+    None,
+    Converting,
+    Copy,
+    Default,
+    Move,
+}
+
+pub struct Position {
+    pub line: i32,
+    pub col: i32,
+}
+
+pub struct CodeSpan {
+    pub start_pos: Position,
+    pub end_pos: Position,
+}
+
+#[derive(Debug, PartialEq)]
 pub enum CursorKind {
     Unexposed(String),
     Struct(String, AccessSpecifierType),
@@ -109,7 +128,7 @@ pub enum CursorKind {
     },
     Namespace(String),
     LinkageSpec(String),
-    Constructor(String, AccessSpecifierType),
+    Constructor(String, ConstructorType, AccessSpecifierType),
     Destructor(String, AccessSpecifierType),
     ConversionFunction(String, AccessSpecifierType),
     TemplateTypeParameter(String),
@@ -159,6 +178,34 @@ fn get_cursor_type(cursor: CXCursor) -> i32 {
 
 fn get_cursor_return_type(cursor: CXCursor) -> i32 {
     unsafe { clang_getCursorResultType(cursor).kind }
+}
+
+fn get_cursor_canonical_type(cursor: CXCursor) -> i32 {
+    unsafe { get_canonical_type(clang_getCursorType(cursor)) }
+}
+
+fn get_cursor_canonical_return_type(cursor: CXCursor) -> i32 {
+    unsafe { get_canonical_type(clang_getCursorResultType(cursor)) }
+}
+
+fn get_canonical_type(cur_type: CXType) -> i32 {
+    unsafe { clang_getCanonicalType(cur_type).kind }
+}
+
+fn get_constructor_type(cursor: CXCursor) -> ConstructorType {
+    unsafe {
+        if clang_CXXConstructor_isCopyConstructor(cursor) == 1 {
+            ConstructorType::Copy
+        } else if clang_CXXConstructor_isMoveConstructor(cursor) == 1 {
+            ConstructorType::Move
+        } else if clang_CXXConstructor_isDefaultConstructor(cursor) == 1 {
+            ConstructorType::Default
+        } else if clang_CXXConstructor_isConvertingConstructor(cursor) == 1 {
+            ConstructorType::Converting
+        } else {
+            ConstructorType::None
+        }
+    }
 }
 
 impl From<i32> for CursorType {
@@ -289,9 +336,11 @@ impl From<CXCursor> for CursorKind {
                 },
                 clang_sys::CXCursor_Namespace => CursorKind::Namespace(spelling),
                 clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(spelling),
-                clang_sys::CXCursor_Constructor => {
-                    CursorKind::Constructor(spelling, get_access_specifier(cursor).into())
-                }
+                clang_sys::CXCursor_Constructor => CursorKind::Constructor(
+                    spelling,
+                    get_constructor_type(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
                 clang_sys::CXCursor_Destructor => {
                     CursorKind::Destructor(spelling, get_access_specifier(cursor).into())
                 }

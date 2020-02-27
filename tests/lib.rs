@@ -2,8 +2,9 @@ use clang_sys::*;
 use libclang_wrapper;
 use libclang_wrapper::source;
 
-use libclang_wrapper::source::AccessSpecifierType;
-use libclang_wrapper::source::{CursorKind, CursorType};
+use libclang_wrapper::source::{
+    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType,
+};
 
 #[test]
 fn parse_single_function() {
@@ -106,11 +107,19 @@ fn parse_class_in_namespace() {
             );
             assert_eq!(
                 cursors[6],
-                CursorKind::Constructor("MyTestClass".to_owned(), AccessSpecifierType::Public)
+                CursorKind::Constructor(
+                    "MyTestClass".to_owned(),
+                    ConstructorType::Default,
+                    AccessSpecifierType::Public
+                )
             );
             assert_eq!(
                 cursors[7],
-                CursorKind::Constructor("MyTestClass".to_owned(), AccessSpecifierType::Public)
+                CursorKind::Constructor(
+                    "MyTestClass".to_owned(),
+                    ConstructorType::Copy,
+                    AccessSpecifierType::Public
+                )
             );
             assert_eq!(
                 cursors[8],
@@ -161,6 +170,14 @@ fn parse_class_in_namespace() {
                     cur_type: CursorType::FunctionProto,
                     return_type: CursorType::Void
                 }
+            );
+            assert_eq!(
+                cursors[17],
+                CursorKind::Constructor(
+                    "MyTestClass".to_owned(),
+                    ConstructorType::Move,
+                    AccessSpecifierType::Protected
+                )
             );
         }
         Err(error) => panic!("{:?}", error),

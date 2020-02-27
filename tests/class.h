@@ -15,6 +15,7 @@ public:
 protected:
   bool field3;
   void test_method();
+  MyTestClass(MyTestClass &&);
 };
 } // namespace my_namespace
 #endif
