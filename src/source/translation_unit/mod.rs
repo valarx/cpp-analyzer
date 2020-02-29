@@ -11,6 +11,7 @@ use index::Index;
 use libc::c_char;
 use std::ffi::CString;
 use std::ptr;
+use ParsingError::FileNameConversionProblem;
 
 pub struct TUOptionsBuilder {
     resulting_options: i32,
@@ -95,7 +96,7 @@ impl TU {
         let c_file_name = CString::new(file_name);
         let c_file_name = match c_file_name {
             Ok(value) => value,
-            Err(_) => return Err(ParsingError::FileNameConversionProblem),
+            Err(_) => return Err(FileNameConversionProblem),
         };
         unsafe {
             let mut result = TU {

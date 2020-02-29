@@ -115,70 +115,73 @@ pub enum Virtuality {
 #[derive(Debug, PartialEq)]
 pub enum CursorKind {
     Unexposed(String),
-    Struct(String, AccessSpecifierType),
-    Union(String, AccessSpecifierType),
+    Struct(String, CodeSpan, AccessSpecifierType),
+    Union(String, CodeSpan, AccessSpecifierType),
     Class(String, CodeSpan, AccessSpecifierType),
-    Field(String, AccessSpecifierType, CursorType),
-    Enum(String, AccessSpecifierType),
-    EnumConstant(String),
+    Field(String, CodeSpan, AccessSpecifierType, CursorType),
+    Enum(String, CodeSpan, AccessSpecifierType),
+    EnumConstant(String, CodeSpan),
     Function {
         spelling: String,
+        code_span: CodeSpan,
         cur_type: CursorType,
         return_type: CursorType,
     },
-    Variable(String, CursorType),
-    Parameter(String, CursorType),
-    Typedef(String, AccessSpecifierType),
+    Variable(String, CodeSpan, CursorType),
+    Parameter(String, CodeSpan, CursorType),
+    Typedef(String, CodeSpan, AccessSpecifierType),
     Method {
         spelling: String,
+        code_span: CodeSpan,
         access_specifier: AccessSpecifierType,
         cur_type: CursorType,
         return_type: CursorType,
     },
-    Namespace(String),
-    LinkageSpec(String),
-    Constructor(String, ConstructorType, AccessSpecifierType),
-    Destructor(String, AccessSpecifierType),
-    ConversionFunction(String, AccessSpecifierType),
-    TemplateTypeParameter(String),
-    TemplateNonTypeParameter(String),
-    TemplateTemplateParameter(String),
-    FunctionTemplate(String),
-    ClassTemplate(String),
-    ClassTemplatePartial(String),
-    NamespaceAlias(String),
-    UsingDirective(String),
-    TypeAlias(String, AccessSpecifierType),
-    AccessSpecifier(AccessSpecifierType),
-    TypeReference(String),
-    BaseSpecifier(String),
-    TemplateReference(String),
-    NamespaceReference(String),
-    MemberReference(String),
-    LabelReference(String),
-    OverloadedDeclarationReference(String),
+    Namespace(String, CodeSpan),
+    LinkageSpec(String, CodeSpan),
+    Constructor(String, CodeSpan, ConstructorType, AccessSpecifierType),
+    Destructor(String, CodeSpan, AccessSpecifierType),
+    ConversionFunction(String, CodeSpan, AccessSpecifierType),
+    TemplateTypeParameter(String, CodeSpan),
+    TemplateNonTypeParameter(String, CodeSpan),
+    TemplateTemplateParameter(String, CodeSpan),
+    FunctionTemplate(String, CodeSpan),
+    ClassTemplate(String, CodeSpan),
+    ClassTemplatePartial(String, CodeSpan),
+    NamespaceAlias(String, CodeSpan),
+    UsingDirective(String, CodeSpan),
+    TypeAlias(String, CodeSpan, AccessSpecifierType),
+    AccessSpecifier(CodeSpan, AccessSpecifierType),
+    TypeReference(String, CodeSpan),
+    BaseSpecifier(String, CodeSpan),
+    TemplateReference(String, CodeSpan),
+    NamespaceReference(String, CodeSpan),
+    MemberReference(String, CodeSpan),
+    LabelReference(String, CodeSpan),
+    OverloadedDeclarationReference(String, CodeSpan),
     VariableReference(String),
-    UnexposedExpression(String),
-    DeclarationReferenceExpression(String), // TODO what is this?
-    MemberReferenceExpression(String),
-    CallExpression(String),  // TODO what is this?
-    BlockExpression(String), // TODO what is this?
-    IntegerLiteral(String),
-    FloatLiteral,
-    ImaginaryLiteral(String), // TODO what is this?
-    StringLiteral(String),
-    CharacterLiteral(String),
-    UnaryOperator(String),
-    ArraySubscription(String),
-    BinaryOperator,
-    CompoundAssignOperator(String),
-    ConditionalOperator(String),
-    CStyleCast(String),
-    CompoundLiteralExpression(String), // TODO what is this?
-    InitializerListExpression(String),
-    CompoundStatement,
-    ReturnStatement,
-    NotSupported(String, i32),
+    CodeSpan,
+    UnexposedExpression(String, CodeSpan),
+    DeclarationReferenceExpression(String, CodeSpan), // TODO what is this?
+    MemberReferenceExpression(String, CodeSpan),
+    CallExpression(String, CodeSpan),  // TODO what is this?
+    BlockExpression(String, CodeSpan), // TODO what is this?
+    IntegerLiteral(String, CodeSpan),
+    FloatLiteral(CodeSpan),
+    ImaginaryLiteral(String, CodeSpan), // TODO what is this?
+    StringLiteral(String, CodeSpan),
+    CharacterLiteral(String, CodeSpan),
+    UnaryOperator(String, CodeSpan),
+    ArraySubscription(String, CodeSpan),
+    BinaryOperator(CodeSpan),
+    CompoundAssignOperator(String, CodeSpan),
+    ConditionalOperator(String, CodeSpan),
+    CStyleCast(String, CodeSpan),
+    CompoundLiteralExpression(String, CodeSpan), // TODO what is this?
+    InitializerListExpression(String, CodeSpan),
+    CompoundStatement(CodeSpan),
+    ReturnStatement(CodeSpan),
+    NotSupported(String, CodeSpan, i32),
 }
 
 fn get_cursor_type(cursor: CXCursor) -> i32 {
@@ -353,12 +356,16 @@ impl From<CXCursor> for CursorKind {
             let spelling = convert_into_owned(cursor_spelling);
             let cursor_kind = match cursor_kind {
                 clang_sys::CXCursor_UnexposedDecl => CursorKind::Unexposed(spelling),
-                clang_sys::CXCursor_StructDecl => {
-                    CursorKind::Struct(spelling, get_access_specifier(cursor).into())
-                }
-                clang_sys::CXCursor_UnionDecl => {
-                    CursorKind::Union(spelling, get_access_specifier(cursor).into())
-                }
+                clang_sys::CXCursor_StructDecl => CursorKind::Struct(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
+                clang_sys::CXCursor_UnionDecl => CursorKind::Union(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
                 clang_sys::CXCursor_ClassDecl => CursorKind::Class(
                     spelling,
                     get_cursor_extent(cursor),
@@ -366,78 +373,123 @@ impl From<CXCursor> for CursorKind {
                 ),
                 clang_sys::CXCursor_FieldDecl => CursorKind::Field(
                     spelling,
+                    get_cursor_extent(cursor),
                     get_access_specifier(cursor).into(),
                     get_cursor_type(cursor).into(),
                 ),
-                clang_sys::CXCursor_EnumDecl => {
-                    CursorKind::Enum(spelling, get_access_specifier(cursor).into())
+                clang_sys::CXCursor_EnumDecl => CursorKind::Enum(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
+                clang_sys::CXCursor_EnumConstantDecl => {
+                    CursorKind::EnumConstant(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_EnumConstantDecl => CursorKind::EnumConstant(spelling),
                 clang_sys::CXCursor_FunctionDecl => CursorKind::Function {
                     spelling,
+                    code_span: get_cursor_extent(cursor),
                     cur_type: get_cursor_type(cursor).into(),
                     return_type: get_cursor_return_type(cursor).into(),
                 },
-                clang_sys::CXCursor_VarDecl => {
-                    CursorKind::Variable(spelling, get_cursor_type(cursor).into())
-                }
-                clang_sys::CXCursor_ParmDecl => {
-                    CursorKind::Parameter(spelling, get_cursor_type(cursor).into())
-                }
-                clang_sys::CXCursor_TypedefDecl => {
-                    CursorKind::Typedef(spelling, get_access_specifier(cursor).into())
-                }
+                clang_sys::CXCursor_VarDecl => CursorKind::Variable(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_cursor_type(cursor).into(),
+                ),
+                clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_cursor_type(cursor).into(),
+                ),
+                clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
                 clang_sys::CXCursor_CXXMethod => CursorKind::Method {
                     spelling,
+                    code_span: get_cursor_extent(cursor),
                     access_specifier: get_access_specifier(cursor).into(),
                     cur_type: get_cursor_type(cursor).into(),
                     return_type: get_cursor_return_type(cursor).into(),
                 },
-                clang_sys::CXCursor_Namespace => CursorKind::Namespace(spelling),
-                clang_sys::CXCursor_LinkageSpec => CursorKind::LinkageSpec(spelling),
+                clang_sys::CXCursor_Namespace => {
+                    CursorKind::Namespace(spelling, get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_LinkageSpec => {
+                    CursorKind::LinkageSpec(spelling, get_cursor_extent(cursor))
+                }
                 clang_sys::CXCursor_Constructor => CursorKind::Constructor(
                     spelling,
+                    get_cursor_extent(cursor),
                     get_constructor_type(cursor),
                     get_access_specifier(cursor).into(),
                 ),
-                clang_sys::CXCursor_Destructor => {
-                    CursorKind::Destructor(spelling, get_access_specifier(cursor).into())
-                }
-                clang_sys::CXCursor_ConversionFunction => {
-                    CursorKind::ConversionFunction(spelling, get_access_specifier(cursor).into())
-                }
+                clang_sys::CXCursor_Destructor => CursorKind::Destructor(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
+                clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
                 clang_sys::CXCursor_TemplateTypeParameter => {
-                    CursorKind::TemplateTypeParameter(spelling)
+                    CursorKind::TemplateTypeParameter(spelling, get_cursor_extent(cursor))
                 }
                 clang_sys::CXCursor_NonTypeTemplateParameter => {
-                    CursorKind::TemplateNonTypeParameter(spelling)
+                    CursorKind::TemplateNonTypeParameter(spelling, get_cursor_extent(cursor))
                 }
                 clang_sys::CXCursor_TemplateTemplateParameter => {
-                    CursorKind::TemplateTemplateParameter(spelling)
+                    CursorKind::TemplateTemplateParameter(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_FunctionTemplate => CursorKind::FunctionTemplate(spelling),
-                clang_sys::CXCursor_ClassTemplate => CursorKind::ClassTemplate(spelling),
+                clang_sys::CXCursor_FunctionTemplate => {
+                    CursorKind::FunctionTemplate(spelling, get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_ClassTemplate => {
+                    CursorKind::ClassTemplate(spelling, get_cursor_extent(cursor))
+                }
                 clang_sys::CXCursor_ClassTemplatePartialSpecialization => {
-                    CursorKind::ClassTemplatePartial(spelling)
+                    CursorKind::ClassTemplatePartial(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_NamespaceAlias => CursorKind::NamespaceAlias(spelling),
-                clang_sys::CXCursor_UsingDirective => CursorKind::UsingDirective(spelling),
-                clang_sys::CXCursor_TypeAliasDecl => {
-                    CursorKind::TypeAlias(spelling, get_access_specifier(cursor).into())
+                clang_sys::CXCursor_NamespaceAlias => {
+                    CursorKind::NamespaceAlias(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_CXXAccessSpecifier => {
-                    CursorKind::AccessSpecifier(get_access_specifier(cursor).into())
+                clang_sys::CXCursor_UsingDirective => {
+                    CursorKind::UsingDirective(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_TypeRef => CursorKind::TypeReference(spelling),
-                clang_sys::CXCursor_CXXBaseSpecifier => CursorKind::BaseSpecifier(spelling),
-                clang_sys::CXCursor_BinaryOperator => CursorKind::BinaryOperator,
+                clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(
+                    spelling,
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
+                clang_sys::CXCursor_CXXAccessSpecifier => CursorKind::AccessSpecifier(
+                    get_cursor_extent(cursor),
+                    get_access_specifier(cursor).into(),
+                ),
+                clang_sys::CXCursor_TypeRef => {
+                    CursorKind::TypeReference(spelling, get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_CXXBaseSpecifier => {
+                    CursorKind::BaseSpecifier(spelling, get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_BinaryOperator => {
+                    CursorKind::BinaryOperator(get_cursor_extent(cursor))
+                }
                 clang_sys::CXCursor_DeclRefExpr => {
-                    CursorKind::DeclarationReferenceExpression(spelling)
+                    CursorKind::DeclarationReferenceExpression(spelling, get_cursor_extent(cursor))
                 }
-                clang_sys::CXCursor_FloatingLiteral => CursorKind::FloatLiteral,
-                clang_sys::CXCursor_CompoundStmt => CursorKind::CompoundStatement,
-                clang_sys::CXCursor_ReturnStmt => CursorKind::ReturnStatement,
-                _ => CursorKind::NotSupported(spelling, cursor_kind),
+                clang_sys::CXCursor_FloatingLiteral => {
+                    CursorKind::FloatLiteral(get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_CompoundStmt => {
+                    CursorKind::CompoundStatement(get_cursor_extent(cursor))
+                }
+                clang_sys::CXCursor_ReturnStmt => {
+                    CursorKind::ReturnStatement(get_cursor_extent(cursor))
+                }
+                _ => CursorKind::NotSupported(spelling, get_cursor_extent(cursor), cursor_kind),
             };
             cursor_kind
         }
