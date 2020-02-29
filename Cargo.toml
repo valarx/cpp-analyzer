@@ -7,9 +7,10 @@ license = "Apache-2.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["clang-sys/clang_9_0"]
+
 [dependencies]
-clang-sys = "0.28"
+clang-sys = "0.29"
 libc = "0.2"
 
-[features]
-clang_8_0 = []
