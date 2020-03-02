@@ -109,7 +109,9 @@ pub struct CodeSpan {
 #[derive(Debug, PartialEq)]
 pub enum Virtuality {
     NonVirtual,
+    PureVirtual,
     Virtual,
+    Static,
 }
 
 #[derive(Debug, PartialEq)]
@@ -135,12 +137,13 @@ pub enum CursorKind {
         code_span: CodeSpan,
         access_specifier: AccessSpecifierType,
         cur_type: CursorType,
+        virtuality: Virtuality,
         return_type: CursorType,
     },
     Namespace(String, CodeSpan),
     LinkageSpec(String, CodeSpan),
     Constructor(String, CodeSpan, ConstructorType, AccessSpecifierType),
-    Destructor(String, CodeSpan, AccessSpecifierType),
+    Destructor(String, CodeSpan, Virtuality, AccessSpecifierType),
     ConversionFunction(String, CodeSpan, AccessSpecifierType),
     TemplateTypeParameter(String, CodeSpan),
     TemplateNonTypeParameter(String, CodeSpan),
@@ -202,6 +205,20 @@ fn get_cursor_canonical_return_type(cursor: CXCursor) -> i32 {
 
 fn get_canonical_type(cur_type: CXType) -> i32 {
     unsafe { clang_getCanonicalType(cur_type).kind }
+}
+
+fn get_cursor_virtuality(cursor: CXCursor) -> Virtuality {
+    unsafe {
+        if clang_CXXMethod_isPureVirtual(cursor) == 1 {
+            Virtuality::PureVirtual
+        } else if clang_CXXMethod_isVirtual(cursor) == 1 {
+            Virtuality::Virtual
+        } else if clang_CXXMethod_isStatic(cursor) == 1 {
+            Virtuality::Static
+        } else {
+            Virtuality::NonVirtual
+        }
+    }
 }
 
 fn get_constructor_type(cursor: CXCursor) -> ConstructorType {
@@ -411,6 +428,7 @@ impl From<CXCursor> for CursorKind {
                     code_span: get_cursor_extent(cursor),
                     access_specifier: get_access_specifier(cursor).into(),
                     cur_type: get_cursor_type(cursor).into(),
+                    virtuality: get_cursor_virtuality(cursor),
                     return_type: get_cursor_return_type(cursor).into(),
                 },
                 clang_sys::CXCursor_Namespace => {
@@ -428,6 +446,7 @@ impl From<CXCursor> for CursorKind {
                 clang_sys::CXCursor_Destructor => CursorKind::Destructor(
                     spelling,
                     get_cursor_extent(cursor),
+                    get_cursor_virtuality(cursor),
                     get_access_specifier(cursor).into(),
                 ),
                 clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(

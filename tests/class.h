@@ -10,7 +10,7 @@ public:
   float field1;
   MyTestClass();
   MyTestClass(const MyTestClass &);
-  MyTestClass &operator=(const MyTestClass &);
+  virtual MyTestClass &operator=(const MyTestClass &) = 0;
 
 protected:
   bool field3;

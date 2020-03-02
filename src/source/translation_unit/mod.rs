@@ -5,7 +5,7 @@ use crate::source::ParsingError;
 use clang_sys::*;
 pub use cursor::{
     AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Position,
-    TemplateArgumentKind,
+    TemplateArgumentKind, Virtuality,
 };
 use index::Index;
 use libc::c_char;
