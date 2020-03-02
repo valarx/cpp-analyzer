@@ -3,7 +3,7 @@ use libclang_wrapper;
 use libclang_wrapper::source;
 
 use libclang_wrapper::source::{
-    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Position,
+    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Position, Virtuality,
 };
 
 #[test]
@@ -433,11 +433,12 @@ fn parse_class_in_namespace() {
                         end_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 46
+                            col: 58
                         }
                     },
                     access_specifier: AccessSpecifierType::Public,
                     cur_type: CursorType::FunctionProto,
+                    virtuality: Virtuality::PureVirtual,
                     return_type: CursorType::LValueReference
                 }
             );
@@ -449,12 +450,12 @@ fn parse_class_in_namespace() {
                         start_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 3
+                            col: 11
                         },
                         end_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 14
+                            col: 22
                         }
                     },
                 )
@@ -467,12 +468,12 @@ fn parse_class_in_namespace() {
                         start_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 26
+                            col: 34
                         },
                         end_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 45
+                            col: 53
                         }
                     },
                     CursorType::LValueReference
@@ -486,12 +487,12 @@ fn parse_class_in_namespace() {
                         start_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 32
+                            col: 40
                         },
                         end_pos: Position {
                             file_name: "tests/class.h".to_owned(),
                             line: 13,
-                            col: 43
+                            col: 51
                         }
                     },
                 )
@@ -552,6 +553,7 @@ fn parse_class_in_namespace() {
                     },
                     access_specifier: AccessSpecifierType::Protected,
                     cur_type: CursorType::FunctionProto,
+                    virtuality: Virtuality::NonVirtual,
                     return_type: CursorType::Void
                 }
             );
