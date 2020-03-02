@@ -79,9 +79,13 @@ extern "C" fn traverse_cursor(
     client_data: *mut core::ffi::c_void,
 ) -> CXChildVisitResult {
     unsafe {
-        let translation_unit = &mut *(client_data as *mut TU);
-        translation_unit.cursors.push(current.into());
-        clang_visitChildren(current, traverse_cursor, client_data);
+        if clang_Location_isInSystemHeader(clang_getCursorLocation(current)) == 0 {
+            let translation_unit = &mut *(client_data as *mut TU);
+            translation_unit.cursors.push(current.into());
+            clang_visitChildren(current, traverse_cursor, client_data);
+        } else {
+            ()
+        }
     }
     CXChildVisit_Continue
 }
