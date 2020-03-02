@@ -1,6 +1,6 @@
 #ifndef CLASS_H
 #define CLASS_H
-
+#include <iostream>
 namespace my_namespace {
 class MyTestClass {
   struct PrivateStruct {};
