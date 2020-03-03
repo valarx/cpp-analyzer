@@ -5,7 +5,7 @@ pub use translation_unit::index::{DeclarationFromPHCMode, DiagnosticsMode};
 pub use translation_unit::TUOptionsBuilder;
 use translation_unit::TU;
 pub use translation_unit::{
-    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Position,
+    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Entry, Position,
     TemplateArgumentKind, Virtuality,
 };
 
