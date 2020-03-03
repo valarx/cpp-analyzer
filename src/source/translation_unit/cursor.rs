@@ -185,6 +185,7 @@ pub enum CursorKind {
     CompoundStatement(CodeSpan),
     ReturnStatement(CodeSpan),
     NotSupported(String, CodeSpan, i32),
+    Root,
 }
 
 fn get_cursor_type(cursor: CXCursor) -> i32 {

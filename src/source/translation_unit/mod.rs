@@ -68,9 +68,15 @@ impl TUOptionsBuilder {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Entry {
+    pub current_kind: CursorKind,
+    pub children: Vec<Entry>,
+}
+
 pub struct TU {
     pub translation_unit: CXTranslationUnit,
-    cursors: Vec<CursorKind>,
+    ast: Entry,
 }
 
 extern "C" fn traverse_cursor(
@@ -80,9 +86,17 @@ extern "C" fn traverse_cursor(
 ) -> CXChildVisitResult {
     unsafe {
         if clang_Location_isInSystemHeader(clang_getCursorLocation(current)) == 0 {
-            let translation_unit = &mut *(client_data as *mut TU);
-            translation_unit.cursors.push(current.into());
-            clang_visitChildren(current, traverse_cursor, client_data);
+            let node = &mut *(client_data as *mut Entry);
+            let mut new_node = Entry {
+                current_kind: current.into(),
+                children: vec![],
+            };
+            clang_visitChildren(
+                current,
+                traverse_cursor,
+                &mut new_node as *mut _ as *mut std::ffi::c_void,
+            );
+            node.children.push(new_node);
         } else {
             ()
         }
@@ -103,10 +117,6 @@ impl TU {
             Err(_) => return Err(FileNameConversionProblem),
         };
         unsafe {
-            let mut result = TU {
-                translation_unit: ptr::null_mut(),
-                cursors: vec![],
-            };
             let command_line_args: Vec<_> = command_line_args
                 .into_iter()
                 .map(|value| CString::new(value).unwrap())
@@ -118,6 +128,7 @@ impl TU {
 
             let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
             let unsaved_files_num = 0;
+            let mut translation_unit: CXTranslationUnit = ptr::null_mut();
             let parse_code = clang_parseTranslationUnit2(
                 index.index,
                 c_file_name.as_ptr(),
@@ -126,12 +137,12 @@ impl TU {
                 unsaved_files,
                 unsaved_files_num,
                 options.build(),
-                &mut result.translation_unit,
+                &mut translation_unit,
             );
 
             match parse_code {
                 clang_sys::CXError_Success => {
-                    assert!(!result.translation_unit.is_null());
+                    assert!(!translation_unit.is_null());
                 }
                 clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
                 clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
@@ -140,19 +151,26 @@ impl TU {
                 _ => return Err(ParsingError::UnknownError(parse_code)),
             };
 
-            let cursor = clang_getTranslationUnitCursor(result.translation_unit);
+            let cursor = clang_getTranslationUnitCursor(translation_unit);
+            let mut node = Entry {
+                current_kind: CursorKind::Root,
+                children: vec![],
+            };
             clang_visitChildren(
                 cursor,
                 traverse_cursor,
-                &mut result as *mut _ as *mut std::ffi::c_void,
+                &mut node as *mut _ as *mut std::ffi::c_void,
             );
 
-            Ok(result)
+            Ok(TU {
+                translation_unit,
+                ast: node,
+            })
         }
     }
 
-    pub fn get_cursors(&self) -> &Vec<CursorKind> {
-        &self.cursors
+    pub fn get_ast(&self) -> &Entry {
+        &self.ast
     }
 }
 
