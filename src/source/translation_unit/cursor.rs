@@ -208,6 +208,23 @@ fn get_canonical_type(cur_type: CXType) -> i32 {
     unsafe { clang_getCanonicalType(cur_type).kind }
 }
 
+fn convert_into_owned(clang_string: CXString) -> String {
+    unsafe {
+        let string = clang_getCString(clang_string);
+        let string = CStr::from_ptr(string).to_string_lossy().into_owned();
+        clang_disposeString(clang_string);
+        string
+    }
+}
+
+fn get_cursor_spelling(cursor: CXCursor) -> CXString {
+    unsafe { clang_getCursorSpelling(cursor) }
+}
+
+fn get_cursor_kind(cursor: CXCursor) -> i32 {
+    unsafe { clang_getCursorKind(cursor) }
+}
+
 fn get_cursor_virtuality(cursor: CXCursor) -> Virtuality {
     unsafe {
         if clang_CXXMethod_isPureVirtual(cursor) == 1 {
@@ -356,162 +373,150 @@ impl From<i32> for AccessSpecifierType {
     }
 }
 
-fn convert_into_owned(clang_string: CXString) -> String {
-    unsafe {
-        let string = clang_getCString(clang_string);
-        let string = CStr::from_ptr(string).to_string_lossy().into_owned();
-        clang_disposeString(clang_string);
-        string
-    }
-}
-
 impl From<CXCursor> for CursorKind {
     fn from(cursor: CXCursor) -> Self {
-        unsafe {
-            let cursor_spelling = clang_getCursorSpelling(cursor);
-            let cursor_kind = clang_getCursorKind(cursor);
+        let spelling = convert_into_owned(get_cursor_spelling(cursor));
+        let cursor_kind = get_cursor_kind(cursor);
 
-            let spelling = convert_into_owned(cursor_spelling);
-            let cursor_kind = match cursor_kind {
-                clang_sys::CXCursor_UnexposedDecl => CursorKind::Unexposed(spelling),
-                clang_sys::CXCursor_StructDecl => CursorKind::Struct(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_UnionDecl => CursorKind::Union(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_ClassDecl => CursorKind::Class(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_FieldDecl => CursorKind::Field(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                    get_cursor_type(cursor).into(),
-                ),
-                clang_sys::CXCursor_EnumDecl => CursorKind::Enum(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_EnumConstantDecl => {
-                    CursorKind::EnumConstant(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_FunctionDecl => CursorKind::Function {
-                    spelling,
-                    code_span: get_cursor_extent(cursor),
-                    cur_type: get_cursor_type(cursor).into(),
-                    return_type: get_cursor_return_type(cursor).into(),
-                },
-                clang_sys::CXCursor_VarDecl => CursorKind::Variable(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_cursor_type(cursor).into(),
-                ),
-                clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_cursor_type(cursor).into(),
-                ),
-                clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_CXXMethod => CursorKind::Method {
-                    spelling,
-                    code_span: get_cursor_extent(cursor),
-                    access_specifier: get_access_specifier(cursor).into(),
-                    cur_type: get_cursor_type(cursor).into(),
-                    virtuality: get_cursor_virtuality(cursor),
-                    return_type: get_cursor_return_type(cursor).into(),
-                },
-                clang_sys::CXCursor_Namespace => {
-                    CursorKind::Namespace(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_LinkageSpec => {
-                    CursorKind::LinkageSpec(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_Constructor => CursorKind::Constructor(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_constructor_type(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_Destructor => CursorKind::Destructor(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_cursor_virtuality(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_TemplateTypeParameter => {
-                    CursorKind::TemplateTypeParameter(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_NonTypeTemplateParameter => {
-                    CursorKind::TemplateNonTypeParameter(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_TemplateTemplateParameter => {
-                    CursorKind::TemplateTemplateParameter(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_FunctionTemplate => {
-                    CursorKind::FunctionTemplate(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_ClassTemplate => {
-                    CursorKind::ClassTemplate(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_ClassTemplatePartialSpecialization => {
-                    CursorKind::ClassTemplatePartial(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_NamespaceAlias => {
-                    CursorKind::NamespaceAlias(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_UsingDirective => {
-                    CursorKind::UsingDirective(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(
-                    spelling,
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_CXXAccessSpecifier => CursorKind::AccessSpecifier(
-                    get_cursor_extent(cursor),
-                    get_access_specifier(cursor).into(),
-                ),
-                clang_sys::CXCursor_TypeRef => {
-                    CursorKind::TypeReference(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_CXXBaseSpecifier => {
-                    CursorKind::BaseSpecifier(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_BinaryOperator => {
-                    CursorKind::BinaryOperator(get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_DeclRefExpr => {
-                    CursorKind::DeclarationReferenceExpression(spelling, get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_FloatingLiteral => {
-                    CursorKind::FloatLiteral(get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_CompoundStmt => {
-                    CursorKind::CompoundStatement(get_cursor_extent(cursor))
-                }
-                clang_sys::CXCursor_ReturnStmt => {
-                    CursorKind::ReturnStatement(get_cursor_extent(cursor))
-                }
-                _ => CursorKind::NotSupported(spelling, get_cursor_extent(cursor), cursor_kind),
-            };
-            cursor_kind
-        }
+        let cursor_kind = match cursor_kind {
+            clang_sys::CXCursor_UnexposedDecl => CursorKind::Unexposed(spelling),
+            clang_sys::CXCursor_StructDecl => CursorKind::Struct(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_UnionDecl => CursorKind::Union(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_ClassDecl => CursorKind::Class(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_FieldDecl => CursorKind::Field(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+                get_cursor_type(cursor).into(),
+            ),
+            clang_sys::CXCursor_EnumDecl => CursorKind::Enum(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_EnumConstantDecl => {
+                CursorKind::EnumConstant(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_FunctionDecl => CursorKind::Function {
+                spelling,
+                code_span: get_cursor_extent(cursor),
+                cur_type: get_cursor_type(cursor).into(),
+                return_type: get_cursor_return_type(cursor).into(),
+            },
+            clang_sys::CXCursor_VarDecl => CursorKind::Variable(
+                spelling,
+                get_cursor_extent(cursor),
+                get_cursor_type(cursor).into(),
+            ),
+            clang_sys::CXCursor_ParmDecl => CursorKind::Parameter(
+                spelling,
+                get_cursor_extent(cursor),
+                get_cursor_type(cursor).into(),
+            ),
+            clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_CXXMethod => CursorKind::Method {
+                spelling,
+                code_span: get_cursor_extent(cursor),
+                access_specifier: get_access_specifier(cursor).into(),
+                cur_type: get_cursor_type(cursor).into(),
+                virtuality: get_cursor_virtuality(cursor),
+                return_type: get_cursor_return_type(cursor).into(),
+            },
+            clang_sys::CXCursor_Namespace => {
+                CursorKind::Namespace(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_LinkageSpec => {
+                CursorKind::LinkageSpec(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_Constructor => CursorKind::Constructor(
+                spelling,
+                get_cursor_extent(cursor),
+                get_constructor_type(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_Destructor => CursorKind::Destructor(
+                spelling,
+                get_cursor_extent(cursor),
+                get_cursor_virtuality(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_ConversionFunction => CursorKind::ConversionFunction(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_TemplateTypeParameter => {
+                CursorKind::TemplateTypeParameter(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_NonTypeTemplateParameter => {
+                CursorKind::TemplateNonTypeParameter(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_TemplateTemplateParameter => {
+                CursorKind::TemplateTemplateParameter(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_FunctionTemplate => {
+                CursorKind::FunctionTemplate(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_ClassTemplate => {
+                CursorKind::ClassTemplate(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_ClassTemplatePartialSpecialization => {
+                CursorKind::ClassTemplatePartial(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_NamespaceAlias => {
+                CursorKind::NamespaceAlias(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_UsingDirective => {
+                CursorKind::UsingDirective(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(
+                spelling,
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_CXXAccessSpecifier => CursorKind::AccessSpecifier(
+                get_cursor_extent(cursor),
+                get_access_specifier(cursor).into(),
+            ),
+            clang_sys::CXCursor_TypeRef => {
+                CursorKind::TypeReference(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_CXXBaseSpecifier => {
+                CursorKind::BaseSpecifier(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_BinaryOperator => {
+                CursorKind::BinaryOperator(get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_DeclRefExpr => {
+                CursorKind::DeclarationReferenceExpression(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_FloatingLiteral => {
+                CursorKind::FloatLiteral(get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_CompoundStmt => {
+                CursorKind::CompoundStatement(get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_ReturnStmt => {
+                CursorKind::ReturnStatement(get_cursor_extent(cursor))
+            }
+            _ => CursorKind::NotSupported(spelling, get_cursor_extent(cursor), cursor_kind),
+        };
+        cursor_kind
     }
 }
