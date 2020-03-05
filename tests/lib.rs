@@ -1,10 +1,11 @@
 use clang_sys::*;
 use libclang_wrapper;
 use libclang_wrapper::source;
+use std::path::Path;
 
 use libclang_wrapper::source::{
-    AccessSpecifierType, CodeSpan, ConstructorType, CursorKind, CursorType, Entry, Position,
-    Virtuality,
+    AccessSpecifierType, CodeSpan, CompilationDatabase, ConstructorType, CursorKind, CursorType,
+    Entry, Parsed, Position, Virtuality,
 };
 
 #[test]
@@ -640,6 +641,24 @@ fn parse_class_in_namespace() {
         }
         Err(error) => panic!("{:?}", error),
     };
+}
+
+#[test]
+fn test_compilation_database() {
+    let compile_database =
+        CompilationDatabase::new(Path::new("tests/test_compile_commands.json")).unwrap();
+    assert_eq!(
+        compile_database.commands,
+        vec![Parsed {
+            args: vec![
+                "/usr/bin/clang++-10".to_owned(),
+                "-fno-limit-debug-info".to_owned(),
+                "-fPIC".to_owned(),
+                "-std=gnu++14".to_owned()
+            ],
+            file: "/some_file/Implementation/BuildInfo.cpp".to_owned()
+        }]
+    );
 }
 
 #[test]

@@ -1,5 +1,7 @@
+mod compilation_database;
 mod translation_unit;
 
+pub use compilation_database::{CompilationDatabase, Parsed};
 use translation_unit::index::Index;
 pub use translation_unit::index::{DeclarationFromPHCMode, DiagnosticsMode};
 pub use translation_unit::TUOptionsBuilder;
