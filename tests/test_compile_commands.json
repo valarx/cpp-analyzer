@@ -1,0 +1,12 @@
+[
+  {
+    "directory": "/some_directory/Debug/BuildInfo",
+    "command": "/usr/bin/clang++-10  -fno-limit-debug-info -fPIC -x c++ -std=c++14",
+    "file": "./tests/class.h"
+  },
+  {
+    "directory": "/some_directory/Debug/BuildInfo",
+    "command": "/usr/bin/clang++-10  -fno-limit-debug-info -fPIC -std=gnu++14",
+    "file": "./tests/header.h"
+  }
+]
