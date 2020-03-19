@@ -110,7 +110,7 @@ fn parse_translation_unit(
     command_line_args_char_vec: Vec<*const c_char>,
     unsaved_files: *mut CXUnsavedFile,
     unsaved_files_num: u32,
-    options: TUOptionsBuilder,
+    options: &TUOptionsBuilder,
 ) -> Result<CXTranslationUnit, ParsingError> {
     let mut translation_unit: CXTranslationUnit = ptr::null_mut();
     unsafe {
@@ -128,10 +128,24 @@ fn parse_translation_unit(
             clang_sys::CXError_Success => {
                 assert!(!translation_unit.is_null());
             }
-            clang_sys::CXError_Failure => return Err(ParsingError::GenericFailure),
-            clang_sys::CXError_Crashed => return Err(ParsingError::Crash),
-            clang_sys::CXError_InvalidArguments => return Err(ParsingError::InvalidArguments),
-            clang_sys::CXError_ASTReadError => return Err(ParsingError::ASTReadError),
+            clang_sys::CXError_Failure => {
+                return Err(ParsingError::GenericFailure(
+                    c_file_name.into_string().unwrap(),
+                ))
+            }
+            clang_sys::CXError_Crashed => {
+                return Err(ParsingError::Crash(c_file_name.into_string().unwrap()))
+            }
+            clang_sys::CXError_InvalidArguments => {
+                return Err(ParsingError::InvalidArguments(
+                    c_file_name.into_string().unwrap(),
+                ))
+            }
+            clang_sys::CXError_ASTReadError => {
+                return Err(ParsingError::ASTReadError(
+                    c_file_name.into_string().unwrap(),
+                ))
+            }
             _ => return Err(ParsingError::UnknownError(parse_code)),
         };
     }
@@ -143,12 +157,12 @@ impl TU {
         file_name: String,
         index: &Index,
         command_line_args: Vec<String>,
-        options: TUOptionsBuilder,
+        options: &TUOptionsBuilder,
     ) -> Result<TU, ParsingError> {
-        let c_file_name = CString::new(file_name);
+        let c_file_name = CString::new(file_name.clone());
         let c_file_name = match c_file_name {
             Ok(value) => value,
-            Err(_) => return Err(FileNameConversionProblem),
+            Err(_) => return Err(FileNameConversionProblem(file_name)),
         };
         let command_line_args: Vec<_> = command_line_args
             .into_iter()
@@ -166,7 +180,7 @@ impl TU {
             command_line_args_char_vec,
             unsaved_files,
             unsaved_files_num,
-            options,
+            &options,
         )?;
         let mut tu = TU {
             translation_unit,
