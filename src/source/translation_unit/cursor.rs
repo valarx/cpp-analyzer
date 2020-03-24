@@ -131,7 +131,7 @@ pub enum CursorKind {
     },
     Variable(String, CodeSpan, CursorType),
     Parameter(String, CodeSpan, CursorType),
-    Typedef(String, CodeSpan, AccessSpecifierType),
+    Typedef(String, CursorType, CodeSpan, AccessSpecifierType),
     Method {
         spelling: String,
         code_span: CodeSpan,
@@ -153,7 +153,7 @@ pub enum CursorKind {
     ClassTemplatePartial(String, CodeSpan),
     NamespaceAlias(String, CodeSpan),
     UsingDirective(String, CodeSpan),
-    TypeAlias(String, CodeSpan, AccessSpecifierType),
+    TypeAlias(String, CursorType, CodeSpan, AccessSpecifierType),
     AccessSpecifier(CodeSpan, AccessSpecifierType),
     TypeReference(String, CodeSpan),
     BaseSpecifier(String, CodeSpan),
@@ -162,8 +162,7 @@ pub enum CursorKind {
     MemberReference(String, CodeSpan),
     LabelReference(String, CodeSpan),
     OverloadedDeclarationReference(String, CodeSpan),
-    VariableReference(String),
-    CodeSpan,
+    VariableReference(String, CodeSpan),
     UnexposedExpression(String, CodeSpan),
     DeclarationReferenceExpression(String, CodeSpan), // TODO what is this?
     MemberReferenceExpression(String, CodeSpan),
@@ -427,6 +426,7 @@ impl From<CXCursor> for CursorKind {
             ),
             clang_sys::CXCursor_TypedefDecl => CursorKind::Typedef(
                 spelling,
+                get_cursor_canonical_type(cursor).into(),
                 get_cursor_extent(cursor),
                 get_access_specifier(cursor).into(),
             ),
@@ -487,6 +487,7 @@ impl From<CXCursor> for CursorKind {
             }
             clang_sys::CXCursor_TypeAliasDecl => CursorKind::TypeAlias(
                 spelling,
+                get_cursor_canonical_type(cursor).into(),
                 get_cursor_extent(cursor),
                 get_access_specifier(cursor).into(),
             ),
@@ -499,6 +500,9 @@ impl From<CXCursor> for CursorKind {
             }
             clang_sys::CXCursor_CXXBaseSpecifier => {
                 CursorKind::BaseSpecifier(spelling, get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_NamespaceRef => {
+                CursorKind::NamespaceReference(spelling, get_cursor_extent(cursor))
             }
             clang_sys::CXCursor_BinaryOperator => {
                 CursorKind::BinaryOperator(get_cursor_extent(cursor))
