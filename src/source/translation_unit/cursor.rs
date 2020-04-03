@@ -128,6 +128,7 @@ pub enum CursorKind {
         code_span: CodeSpan,
         cur_type: CursorType,
         return_type: CursorType,
+        canonical_return_type: CursorType,
     },
     Variable(String, CodeSpan, CursorType),
     Parameter(String, CodeSpan, CursorType),
@@ -139,6 +140,7 @@ pub enum CursorKind {
         cur_type: CursorType,
         virtuality: Virtuality,
         return_type: CursorType,
+        canonical_return_type: CursorType,
     },
     Namespace(String, CodeSpan),
     LinkageSpec(String, CodeSpan),
@@ -413,6 +415,7 @@ impl From<CXCursor> for CursorKind {
                 code_span: get_cursor_extent(cursor),
                 cur_type: get_cursor_type(cursor).into(),
                 return_type: get_cursor_return_type(cursor).into(),
+                canonical_return_type: get_cursor_canonical_return_type(cursor).into(),
             },
             clang_sys::CXCursor_VarDecl => CursorKind::Variable(
                 spelling,
@@ -437,6 +440,7 @@ impl From<CXCursor> for CursorKind {
                 cur_type: get_cursor_type(cursor).into(),
                 virtuality: get_cursor_virtuality(cursor),
                 return_type: get_cursor_return_type(cursor).into(),
+                canonical_return_type: get_cursor_canonical_return_type(cursor).into(),
             },
             clang_sys::CXCursor_Namespace => {
                 CursorKind::Namespace(spelling, get_cursor_extent(cursor))

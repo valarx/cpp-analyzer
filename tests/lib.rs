@@ -43,6 +43,7 @@ fn parse_single_function() {
                         },
                         cur_type: CursorType::FunctionProto,
                         return_type: CursorType::Int,
+                        canonical_return_type: CursorType::Int,
                     },
                     children: vec![
                         Entry {
@@ -102,6 +103,7 @@ fn parse_single_function() {
                         },
                         cur_type: CursorType::FunctionProto,
                         return_type: CursorType::LValueReference,
+                        canonical_return_type: CursorType::LValueReference,
                     },
                     children: vec![
                         Entry {
@@ -449,7 +451,8 @@ fn parse_class_in_namespace() {
                                 access_specifier: AccessSpecifierType::Public,
                                 cur_type: CursorType::FunctionProto,
                                 virtuality: Virtuality::PureVirtual,
-                                return_type: CursorType::LValueReference
+                                return_type: CursorType::LValueReference,
+                                canonical_return_type: CursorType::LValueReference
                             },
                             children: vec![
                                 Entry {
@@ -564,7 +567,8 @@ fn parse_class_in_namespace() {
                                 access_specifier: AccessSpecifierType::Protected,
                                 cur_type: CursorType::FunctionProto,
                                 virtuality: Virtuality::NonVirtual,
-                                return_type: CursorType::Void
+                                return_type: CursorType::Void,
+                                canonical_return_type: CursorType::Void
                             },
                             children: vec![]
                         },
