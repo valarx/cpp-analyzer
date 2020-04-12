@@ -13,6 +13,7 @@ use std::ffi::CString;
 use std::ptr;
 use ParsingError::FileNameConversionProblem;
 
+#[derive(Clone, Copy)]
 pub struct TUOptionsBuilder {
     resulting_options: i32,
 }
@@ -75,8 +76,30 @@ pub struct Entry {
 }
 
 pub struct TU {
-    pub translation_unit: CXTranslationUnit,
     ast: Entry,
+}
+
+struct TranslationUnitWrapper {
+    pub translation_unit: CXTranslationUnit,
+}
+
+fn get_cursor(translation_unit: CXTranslationUnit) -> CXCursor {
+    unsafe { clang_getTranslationUnitCursor(translation_unit) }
+}
+
+fn get_ast(cursor: CXCursor) -> Entry {
+    let mut ast = Entry {
+        current_kind: CursorKind::Root,
+        children: vec![],
+    };
+    unsafe {
+        clang_visitChildren(
+            cursor,
+            traverse_cursor,
+            &mut ast as *mut _ as *mut std::ffi::c_void,
+        );
+    }
+    ast
 }
 
 extern "C" fn traverse_cursor(
@@ -174,46 +197,28 @@ impl TU {
         }
         let unsaved_files: *mut CXUnsavedFile = ptr::null_mut();
         let unsaved_files_num = 0;
-        let translation_unit: CXTranslationUnit = parse_translation_unit(
-            index,
-            c_file_name,
-            command_line_args_char_vec,
-            unsaved_files,
-            unsaved_files_num,
-            &options,
-        )?;
-        let mut tu = TU {
-            translation_unit,
-            ast: Entry {
-                current_kind: CursorKind::Root,
-                children: vec![],
-            },
+        let translation_unit_wrapper = TranslationUnitWrapper {
+            translation_unit: parse_translation_unit(
+                index,
+                c_file_name,
+                command_line_args_char_vec,
+                unsaved_files,
+                unsaved_files_num,
+                &options,
+            )?,
         };
-        tu.parse();
+        let tu = TU {
+            ast: get_ast(get_cursor(translation_unit_wrapper.translation_unit)),
+        };
         Ok(tu)
     }
 
-    pub fn get_ast(&self) -> &Entry {
+    pub fn ast(&self) -> &Entry {
         &self.ast
-    }
-
-    pub fn parse(&mut self) {
-        let cursor = self.get_cursor();
-        unsafe {
-            clang_visitChildren(
-                cursor,
-                traverse_cursor,
-                &mut self.ast as *mut _ as *mut std::ffi::c_void,
-            );
-        }
-    }
-
-    fn get_cursor(&self) -> CXCursor {
-        unsafe { clang_getTranslationUnitCursor(self.translation_unit) }
     }
 }
 
-impl Drop for TU {
+impl Drop for TranslationUnitWrapper {
     fn drop(&mut self) {
         unsafe {
             clang_disposeTranslationUnit(self.translation_unit);

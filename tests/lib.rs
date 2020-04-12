@@ -20,7 +20,7 @@ fn parse_single_function() {
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
     let translation_unit = translation_units.unwrap().into_iter().nth(0).unwrap();
-    let ast = translation_unit.get_ast();
+    let ast = translation_unit.ast();
     assert_eq!(
         ast,
         &Entry {
@@ -242,7 +242,7 @@ fn parse_class_in_namespace() {
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
     let translation_unit = translation_units.unwrap().into_iter().nth(0).unwrap();
-    let ast = translation_unit.get_ast();
+    let ast = translation_unit.ast();
     assert_eq!(
         ast,
         &Entry {
@@ -696,7 +696,7 @@ fn test_type_aliases_and_typedefs() {
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
     let translation_unit = translation_units.unwrap().into_iter().nth(0).unwrap();
-    let ast = translation_unit.get_ast();
+    let ast = translation_unit.ast();
     assert_eq!(
         ast,
         &Entry {
