@@ -1,11 +1,13 @@
 use crate::source::ParsingError;
 use clang_sys::*;
 
+#[derive(Clone, Copy)]
 pub enum DeclarationFromPHCMode {
     Include = 0,
     Exclude = 1,
 }
 
+#[derive(Clone, Copy)]
 pub enum DiagnosticsMode {
     Disabled = 0,
     Enabled = 1,
