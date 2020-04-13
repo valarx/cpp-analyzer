@@ -1,3 +1,4 @@
+use crate::source::compiler_instance::CompilerInstance;
 use crate::source::ParsingError;
 use clang_sys::*;
 
@@ -15,6 +16,7 @@ pub enum DiagnosticsMode {
 
 pub struct Index {
     pub index: CXIndex,
+    _compiler: CompilerInstance,
 }
 
 fn create_index(
@@ -35,9 +37,11 @@ impl Index {
     pub fn new(
         phc_mode: DeclarationFromPHCMode,
         diagnostics_mode: DiagnosticsMode,
+        compiler: CompilerInstance,
     ) -> Result<Index, ParsingError> {
         let result = Index {
             index: create_index(phc_mode, diagnostics_mode)?,
+            _compiler: compiler,
         };
         Ok(result)
     }

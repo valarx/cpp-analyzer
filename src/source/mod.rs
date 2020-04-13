@@ -1,9 +1,11 @@
 mod compilation_database;
+mod compiler_instance;
 mod translation_unit;
-use std::sync::mpsc::channel;
-use threadpool::ThreadPool;
 
 pub use compilation_database::{CompilationDatabase, Parsed};
+use compiler_instance::CompilerInstance;
+use std::sync::mpsc::channel;
+use threadpool::ThreadPool;
 use translation_unit::index::Index;
 pub use translation_unit::index::{DeclarationFromPHCMode, DiagnosticsMode};
 pub use translation_unit::TUOptionsBuilder;
@@ -36,7 +38,8 @@ impl Source {
         command_line_args: Vec<String>,
         options: TUOptionsBuilder,
     ) -> Result<Source, ParsingError> {
-        let index = Index::new(phc_mode, diagnostics_mode)?;
+        let ci = CompilerInstance::new();
+        let index = Index::new(phc_mode, diagnostics_mode, ci)?;
         let mut result = Source {
             translation_units: vec![],
         };
@@ -59,7 +62,8 @@ impl Source {
         for command in compilation_database.commands {
             let tx = tx.clone();
             thread_pool.execute(move || {
-                let index = Index::new(phc_mode, diagnostics_mode);
+                let ci = CompilerInstance::new();
+                let index = Index::new(phc_mode, diagnostics_mode, ci);
                 let err_msg = "Failed to create syncronization channel for thread pool";
                 match index {
                     Ok(index) => tx
@@ -67,6 +71,7 @@ impl Source {
                         .expect(err_msg),
                     Err(err) => tx.send(Err(err)).expect(err_msg),
                 };
+                //          clang_sys::unload().unwrap();
             });
         }
         let result = Source {
