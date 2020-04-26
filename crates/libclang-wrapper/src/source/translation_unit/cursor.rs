@@ -170,12 +170,12 @@ pub enum CursorKind {
     MemberReferenceExpression(String, CodeSpan),
     CallExpression(String, CodeSpan),  // TODO what is this?
     BlockExpression(String, CodeSpan), // TODO what is this?
-    IntegerLiteral(String, CodeSpan),
+    IntegerLiteral(CodeSpan),
     FloatLiteral(CodeSpan),
     ImaginaryLiteral(String, CodeSpan), // TODO what is this?
     StringLiteral(String, CodeSpan),
     CharacterLiteral(String, CodeSpan),
-    UnaryOperator(String, CodeSpan),
+    UnaryOperator(CodeSpan),
     ArraySubscription(String, CodeSpan),
     BinaryOperator(CodeSpan),
     CompoundAssignOperator(String, CodeSpan),
@@ -185,6 +185,7 @@ pub enum CursorKind {
     InitializerListExpression(String, CodeSpan),
     CompoundStatement(CodeSpan),
     ReturnStatement(CodeSpan),
+    IfStatement(CodeSpan),
     NotSupported(String, CodeSpan, i32),
     Root,
 }
@@ -381,6 +382,10 @@ impl From<CXCursor> for CursorKind {
 
         let cursor_kind = match cursor_kind {
             clang_sys::CXCursor_UnexposedDecl => CursorKind::Unexposed(spelling),
+            clang_sys::CXCursor_UnexposedExpr => {
+                CursorKind::UnexposedExpression(spelling, get_cursor_extent(cursor))
+                // example, if (a > 0) `a` is unexposed expression with `a` as a child
+            }
             clang_sys::CXCursor_StructDecl => CursorKind::Struct(
                 spelling,
                 get_cursor_extent(cursor),
@@ -465,6 +470,9 @@ impl From<CXCursor> for CursorKind {
                 get_cursor_extent(cursor),
                 get_access_specifier(cursor).into(),
             ),
+            clang_sys::CXCursor_IntegerLiteral => {
+                CursorKind::IntegerLiteral(get_cursor_extent(cursor))
+            }
             clang_sys::CXCursor_TemplateTypeParameter => {
                 CursorKind::TemplateTypeParameter(spelling, get_cursor_extent(cursor))
             }
@@ -508,6 +516,9 @@ impl From<CXCursor> for CursorKind {
             clang_sys::CXCursor_NamespaceRef => {
                 CursorKind::NamespaceReference(spelling, get_cursor_extent(cursor))
             }
+            clang_sys::CXCursor_UnaryOperator => {
+                CursorKind::UnaryOperator(get_cursor_extent(cursor))
+            }
             clang_sys::CXCursor_BinaryOperator => {
                 CursorKind::BinaryOperator(get_cursor_extent(cursor))
             }
@@ -523,6 +534,7 @@ impl From<CXCursor> for CursorKind {
             clang_sys::CXCursor_ReturnStmt => {
                 CursorKind::ReturnStatement(get_cursor_extent(cursor))
             }
+            clang_sys::CXCursor_IfStmt => CursorKind::IfStatement(get_cursor_extent(cursor)),
             _ => CursorKind::NotSupported(spelling, get_cursor_extent(cursor), cursor_kind),
         };
         cursor_kind
