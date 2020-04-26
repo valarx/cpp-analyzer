@@ -186,6 +186,10 @@ pub enum CursorKind {
     CompoundStatement(CodeSpan),
     ReturnStatement(CodeSpan),
     IfStatement(CodeSpan),
+    SwitchStatement(CodeSpan),
+    CaseStatement(CodeSpan),
+    BreakStatement(CodeSpan),
+    DefaultStatement(CodeSpan),
     NotSupported(String, CodeSpan, i32),
     Root,
 }
@@ -534,6 +538,14 @@ impl From<CXCursor> for CursorKind {
             clang_sys::CXCursor_ReturnStmt => {
                 CursorKind::ReturnStatement(get_cursor_extent(cursor))
             }
+            clang_sys::CXCursor_SwitchStmt => {
+                CursorKind::SwitchStatement(get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_DefaultStmt => {
+                CursorKind::DefaultStatement(get_cursor_extent(cursor))
+            }
+            clang_sys::CXCursor_BreakStmt => CursorKind::BreakStatement(get_cursor_extent(cursor)),
+            clang_sys::CXCursor_CaseStmt => CursorKind::CaseStatement(get_cursor_extent(cursor)),
             clang_sys::CXCursor_IfStmt => CursorKind::IfStatement(get_cursor_extent(cursor)),
             _ => CursorKind::NotSupported(spelling, get_cursor_extent(cursor), cursor_kind),
         };
