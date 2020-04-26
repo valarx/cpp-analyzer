@@ -1,21 +1,20 @@
 use clang_sys::*;
 use libclang_wrapper;
-use libclang_wrapper::source;
-use std::path::Path;
-
 use libclang_wrapper::source::{
     AccessSpecifierType, CodeSpan, CompilationDatabase, ConstructorType, CursorKind, CursorType,
-    Entry, Parsed, Position, Virtuality,
+    DeclarationFromPHCMode, DiagnosticsMode, Entry, Parsed, Position, Source, TUOptionsBuilder,
+    Virtuality,
 };
+use std::path::Path;
 
 #[test]
 fn parse_single_function() {
-    let source = source::Source::from_file(
+    let source = Source::from_file(
         "tests/header.h".to_owned(),
-        source::DeclarationFromPHCMode::Exclude,
-        source::DiagnosticsMode::Enabled,
+        DeclarationFromPHCMode::Exclude,
+        DiagnosticsMode::Enabled,
         vec!["-x".to_owned(), "c++".to_owned()],
-        source::TUOptionsBuilder::new(),
+        TUOptionsBuilder::new(),
     )
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
@@ -232,12 +231,12 @@ fn parse_single_function() {
 
 #[test]
 fn parse_class_in_namespace() {
-    let source = source::Source::from_file(
+    let source = Source::from_file(
         "tests/class.h".to_owned(),
-        source::DeclarationFromPHCMode::Exclude,
-        source::DiagnosticsMode::Enabled,
+        DeclarationFromPHCMode::Exclude,
+        DiagnosticsMode::Enabled,
         vec!["-x".to_owned(), "c++".to_owned()],
-        source::TUOptionsBuilder::new(),
+        TUOptionsBuilder::new(),
     )
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
@@ -669,11 +668,11 @@ fn test_compilation_database() {
 fn test_parsing_with_compilation_database() {
     let compile_database =
         CompilationDatabase::new(Path::new("tests/test_compile_commands.json")).unwrap();
-    let source = source::Source::from_compilation_database(
-        source::DeclarationFromPHCMode::Exclude,
-        source::DiagnosticsMode::Enabled,
+    let source = Source::from_compilation_database(
+        DeclarationFromPHCMode::Exclude,
+        DiagnosticsMode::Enabled,
         compile_database,
-        source::TUOptionsBuilder::new(),
+        TUOptionsBuilder::new(),
     )
     .unwrap();
     let (success, errors): (Vec<_>, Vec<_>) = source
@@ -686,12 +685,12 @@ fn test_parsing_with_compilation_database() {
 
 #[test]
 fn test_type_aliases_and_typedefs() {
-    let source = source::Source::from_file(
+    let source = Source::from_file(
         "tests/type_aliases_and_typedefs.cpp".to_owned(),
-        source::DeclarationFromPHCMode::Exclude,
-        source::DiagnosticsMode::Enabled,
+        DeclarationFromPHCMode::Exclude,
+        DiagnosticsMode::Enabled,
         vec!["-std=c++14".to_owned()],
-        source::TUOptionsBuilder::new(),
+        TUOptionsBuilder::new(),
     )
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
@@ -896,12 +895,12 @@ fn test_type_aliases_and_typedefs() {
 
 #[test]
 fn test_chars() {
-    let source = source::Source::from_file(
+    let source = Source::from_file(
         "tests/chars.cpp".to_owned(),
-        source::DeclarationFromPHCMode::Exclude,
-        source::DiagnosticsMode::Enabled,
+        DeclarationFromPHCMode::Exclude,
+        DiagnosticsMode::Enabled,
         vec!["-std=c++14".to_owned()],
-        source::TUOptionsBuilder::new(),
+        TUOptionsBuilder::new(),
     )
     .unwrap();
     let translation_units: Result<Vec<_>, _> = source.translation_units.into_iter().collect();
