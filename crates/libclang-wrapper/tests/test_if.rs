@@ -24,6 +24,7 @@ fn test_parsing_if_conditions() {
             children: vec![Entry {
                 current_kind: CursorKind::Function {
                     spelling: "func".to_owned(),
+                    display_name: "func(int)".to_owned(),
                     code_span: CodeSpan {
                         start_pos: Position {
                             file_name: "tests/branching.cpp".to_owned(),

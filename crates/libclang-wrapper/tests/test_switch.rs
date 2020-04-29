@@ -25,6 +25,7 @@ fn test_parsing_switch_conditions() {
                 Entry {
                     current_kind: CursorKind::Function {
                         spelling: "func".to_owned(),
+                        display_name: "func(int)".to_owned(),
                         code_span: CodeSpan {
                             start_pos: Position {
                                 file_name: "tests/switch.cpp".to_owned(),

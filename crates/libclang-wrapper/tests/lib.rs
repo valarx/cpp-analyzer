@@ -28,6 +28,7 @@ fn parse_single_function() {
                 Entry {
                     current_kind: CursorKind::Function {
                         spelling: "add".to_owned(),
+                        display_name: "add(int, int)".to_owned(),
                         code_span: CodeSpan {
                             start_pos: Position {
                                 file_name: "tests/header.h".to_owned(),
@@ -88,6 +89,7 @@ fn parse_single_function() {
                 Entry {
                     current_kind: CursorKind::Function {
                         spelling: "function_with_param".to_owned(),
+                        display_name: "function_with_param(float &)".to_owned(),
                         code_span: CodeSpan {
                             start_pos: Position {
                                 file_name: "tests/header.h".to_owned(),
@@ -913,6 +915,7 @@ fn test_chars() {
             children: vec![Entry {
                 current_kind: CursorKind::Function {
                     spelling: "char_stuff".to_owned(),
+                    display_name: "char_stuff(unsigned char, signed char, char)".to_owned(),
                     code_span: CodeSpan {
                         start_pos: Position {
                             file_name: "tests/chars.cpp".to_owned(),
