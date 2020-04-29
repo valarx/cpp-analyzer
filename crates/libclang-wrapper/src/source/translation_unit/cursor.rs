@@ -171,6 +171,7 @@ pub enum CursorKind {
     MemberReferenceExpression(String, CodeSpan),
     CallExpression(String, CodeSpan), // looks like this is involved in range-based for loop
     BlockExpression(String, CodeSpan), // TODO what is this?
+    BoolLiteral(CodeSpan),
     IntegerLiteral(CodeSpan),
     FloatLiteral(CodeSpan),
     ImaginaryLiteral(String, CodeSpan), // TODO what is this?
@@ -192,6 +193,8 @@ pub enum CursorKind {
     BreakStatement(CodeSpan),
     DefaultStatement(CodeSpan),
     ForStatement(CodeSpan),
+    DoStatement(CodeSpan),
+    WhileStatement(CodeSpan),
     RangeBasedForStatement(CodeSpan),
     ContinueStatement(CodeSpan),
     DeclarationStatement(CodeSpan),
@@ -558,6 +561,8 @@ impl From<CXCursor> for CursorKind {
             clang_sys::CXCursor_CXXForRangeStmt => {
                 CursorKind::RangeBasedForStatement(get_cursor_extent(cursor))
             }
+            clang_sys::CXCursor_DoStmt => CursorKind::DoStatement(get_cursor_extent(cursor)),
+            clang_sys::CXCursor_WhileStmt => CursorKind::WhileStatement(get_cursor_extent(cursor)),
             clang_sys::CXCursor_ContinueStmt => {
                 CursorKind::ContinueStatement(get_cursor_extent(cursor))
             }
@@ -572,6 +577,9 @@ impl From<CXCursor> for CursorKind {
                 spelling,
                 get_cursor_extent(cursor),
             ),
+            clang_sys::CXCursor_CXXBoolLiteralExpr => {
+                CursorKind::BoolLiteral(get_cursor_extent(cursor))
+            }
             clang_sys::CXCursor_CallExpr => {
                 CursorKind::CallExpression(spelling, get_cursor_extent(cursor))
             }
